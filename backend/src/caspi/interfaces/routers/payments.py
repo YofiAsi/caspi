@@ -47,7 +47,8 @@ class PatchPaymentBody(BaseModel):
 
 def _to_response(p, aliases: dict[str, str] | None = None) -> PaymentResponse:
     resolved_aliases = aliases or {}
-    alias = resolved_aliases.get(p.merchant) if p.merchant else None
+    alias_key = p.merchant or p.description
+    alias = resolved_aliases.get(alias_key)
     display_name = alias or p.merchant or p.description
     return PaymentResponse(
         payment_id=str(p.payment_id.value),
@@ -170,13 +171,14 @@ async def patch_payment(payment_id: str, body: PatchPaymentBody, db: AsyncSessio
                 my_share=Money(payment.shared_payment.my_share.amount, body.share_currency)
             )
 
-    if "merchant_alias" in body.model_fields_set and payment.merchant:
-        alias_model = await db.get(MerchantAliasModel, payment.merchant)
+    if "merchant_alias" in body.model_fields_set:
+        alias_key = payment.merchant or payment.description
+        alias_model = await db.get(MerchantAliasModel, alias_key)
         if body.merchant_alias:
             if alias_model:
                 alias_model.alias = body.merchant_alias
             else:
-                db.add(MerchantAliasModel(original_merchant=payment.merchant, alias=body.merchant_alias))
+                db.add(MerchantAliasModel(original_merchant=alias_key, alias=body.merchant_alias))
         else:
             if alias_model:
                 await db.delete(alias_model)
