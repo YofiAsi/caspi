@@ -1,0 +1,18 @@
+{
+  "name": "caspi-scraper",
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^5.0.1",
+    "israeli-bank-scrapers": "file:./fork",
+    "puppeteer-core": "^22.15.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  }
+}
