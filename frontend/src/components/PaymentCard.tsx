@@ -3,7 +3,7 @@ import { formatCurrency } from '../utils/currency'
 
 interface Props {
   payment: Payment
-  onClick: () => void
+  onClick: (event: React.MouseEvent) => void
   isSelected?: boolean
 }
 
@@ -22,7 +22,7 @@ export function PaymentCard({ payment, onClick, isSelected }: Props) {
       role="button"
       tabIndex={0}
       onClick={onClick}
-      onKeyDown={(e) => e.key === 'Enter' && onClick()}
+      onKeyDown={(e) => e.key === 'Enter' && onClick(e as unknown as React.MouseEvent)}
       className={`w-full text-left px-4 py-3.5 transition-colors cursor-pointer border-b border-gray-100 last:border-0 ${
         isSelected ? 'bg-indigo-50' : 'hover:bg-gray-50 active:bg-gray-100'
       }`}

@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { Payment, PaymentFilters } from '../types'
@@ -5,15 +6,54 @@ import { PaymentCard } from './PaymentCard'
 
 interface Props {
   filters: PaymentFilters
-  selectedPaymentId?: string
-  onSelect: (payment: Payment) => void
+  selectedPaymentIds: Set<string>
+  onSelectionChange: (payments: Payment[]) => void
 }
 
-export function PaymentList({ filters, selectedPaymentId, onSelect }: Props) {
+export function PaymentList({ filters, selectedPaymentIds, onSelectionChange }: Props) {
   const { data: payments, isLoading, isError } = useQuery({
     queryKey: ['payments', filters],
     queryFn: () => api.payments.list(filters),
   })
+
+  const lastClickedId = useRef<string | null>(null)
+
+  const handleCardClick = (payment: Payment, event: React.MouseEvent) => {
+    if (!payments) return
+
+    const isCtrl = event.ctrlKey || event.metaKey
+    const isShift = event.shiftKey
+
+    if (isShift && lastClickedId.current) {
+      const anchorIdx = payments.findIndex((p) => p.payment_id === lastClickedId.current)
+      const targetIdx = payments.findIndex((p) => p.payment_id === payment.payment_id)
+      if (anchorIdx !== -1 && targetIdx !== -1) {
+        const from = Math.min(anchorIdx, targetIdx)
+        const to = Math.max(anchorIdx, targetIdx)
+        const rangeIds = new Set(payments.slice(from, to + 1).map((p) => p.payment_id))
+        const next = payments.filter((p) => selectedPaymentIds.has(p.payment_id) || rangeIds.has(p.payment_id))
+        onSelectionChange(next)
+        return
+      }
+    }
+
+    if (isCtrl) {
+      lastClickedId.current = payment.payment_id
+      if (selectedPaymentIds.has(payment.payment_id)) {
+        onSelectionChange(payments.filter((p) => selectedPaymentIds.has(p.payment_id) && p.payment_id !== payment.payment_id))
+      } else {
+        onSelectionChange(payments.filter((p) => selectedPaymentIds.has(p.payment_id) || p.payment_id === payment.payment_id))
+      }
+      return
+    }
+
+    lastClickedId.current = payment.payment_id
+    if (selectedPaymentIds.size === 1 && selectedPaymentIds.has(payment.payment_id)) {
+      onSelectionChange([])
+    } else {
+      onSelectionChange([payment])
+    }
+  }
 
   if (isLoading) {
     return (
@@ -45,8 +85,8 @@ export function PaymentList({ filters, selectedPaymentId, onSelect }: Props) {
         <PaymentCard
           key={payment.payment_id}
           payment={payment}
-          onClick={() => onSelect(payment)}
-          isSelected={payment.payment_id === selectedPaymentId}
+          onClick={(e) => handleCardClick(payment, e)}
+          isSelected={selectedPaymentIds.has(payment.payment_id)}
         />
       ))}
     </div>
