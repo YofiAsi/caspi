@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import { PaymentList } from './components/PaymentList'
 import { PaymentDetailsPanel } from './components/PaymentDetailsPanel'
+import { BulkActionsPanel } from './components/BulkActionsPanel'
 import { ScrapeModal } from './components/ScrapeModal'
 import type { Payment, PaymentFilters } from './types'
 
@@ -34,7 +35,7 @@ function AppInner() {
   const [filters, setFilters] = useState<PaymentFilters>(() => ({
     ...getMonthBounds(initialMonth),
   }))
-  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
+  const [selectedPayments, setSelectedPayments] = useState<Payment[]>([])
   const [showScrapeModal, setShowScrapeModal] = useState(false)
   const queryClient = useQueryClient()
 
@@ -54,9 +55,15 @@ function AppInner() {
     handleMonthChange(next)
   }
 
+  const selectedPaymentIds = useMemo(
+    () => new Set(selectedPayments.map((p) => p.payment_id)),
+    [selectedPayments],
+  )
+  const panelOpen = selectedPayments.length > 0
+
   return (
     <>
-      <div className={`h-screen flex flex-col bg-gray-50 transition-[padding] duration-200 ${selectedPayment ? 'md:pr-[352px]' : ''}`}>
+      <div className={`h-screen flex flex-col bg-gray-50 transition-[padding] duration-200 ${panelOpen ? 'md:pr-[352px]' : ''}`}>
         <header className="shrink-0 bg-white border-b border-gray-200 px-4 sm:px-6 flex items-center justify-between gap-4" style={{ height: '73px' }}>
           <div>
             <h1 className="text-xl font-bold text-gray-900 tracking-tight">Caspi</h1>
@@ -100,20 +107,23 @@ function AppInner() {
           <div className="flex-1 overflow-y-auto">
             <PaymentList
               filters={filters}
-              selectedPaymentId={selectedPayment?.payment_id}
-              onSelect={(p) =>
-                setSelectedPayment((prev) =>
-                  prev?.payment_id === p.payment_id ? null : p,
-                )
-              }
+              selectedPaymentIds={selectedPaymentIds}
+              onSelectionChange={setSelectedPayments}
             />
           </div>
         </main>
-        <PaymentDetailsPanel
-          payment={selectedPayment}
-          onClose={() => setSelectedPayment(null)}
-          onPaymentUpdate={(p) => setSelectedPayment(p)}
-        />
+        {selectedPayments.length === 1 ? (
+          <PaymentDetailsPanel
+            payment={selectedPayments[0]}
+            onClose={() => setSelectedPayments([])}
+            onPaymentUpdate={(p) => setSelectedPayments([p])}
+          />
+        ) : selectedPayments.length > 1 ? (
+          <BulkActionsPanel
+            payments={selectedPayments}
+            onClearSelection={() => setSelectedPayments([])}
+          />
+        ) : null}
       </div>
       {showScrapeModal && (
         <ScrapeModal
