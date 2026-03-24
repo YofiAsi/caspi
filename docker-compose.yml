@@ -35,6 +35,7 @@ services:
         condition: service_started
     volumes:
       - ./backend/src:/app/src
+      - ./backend/alembic:/app/alembic
 
   scraper:
     build:

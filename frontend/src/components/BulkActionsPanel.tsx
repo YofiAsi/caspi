@@ -51,8 +51,8 @@ function BulkTagDialog({ payments, onClose, onSaved }: DialogProps) {
     mutationFn: async (newTags: string[]) => {
       await Promise.all(
         payments.map((p) => {
-          const merged = Array.from(new Set([...p.tags, ...newTags]))
-          return api.payments.patch(p.payment_id, { tags: merged })
+          const merged = Array.from(new Set([...p.payment_tags, ...newTags]))
+          return api.payments.patch(p.payment_id, { payment_tags: merged })
         }),
       )
     },
@@ -81,7 +81,7 @@ function BulkTagDialog({ payments, onClose, onSaved }: DialogProps) {
       <div className="relative z-10 w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            Add tags to {payments.length} payments
+            Add payment-only tags to {payments.length} payments
           </p>
           <button
             type="button"

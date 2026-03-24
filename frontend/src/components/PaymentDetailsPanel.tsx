@@ -39,12 +39,15 @@ function Row({ label, value }: { label: string; value?: string | number | null }
 
 interface ContentProps {
   payment: Payment
-  tags: string[]
+  paymentTags: string[]
+  merchantTags: string[]
   tagInput: string
   setTagInput: (v: string) => void
   addTag: () => void
   removeTag: (tag: string) => void
   handleTagKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
+  tagScopeAllSimilar: boolean
+  setTagScopeAllSimilar: (v: boolean) => void
   isPending: boolean
   isEditingAlias: boolean
   aliasInput: string
@@ -57,12 +60,15 @@ interface ContentProps {
 
 function PanelContent({
   payment,
-  tags,
+  paymentTags,
+  merchantTags,
   tagInput,
   setTagInput,
   addTag,
   removeTag,
   handleTagKeyDown,
+  tagScopeAllSimilar,
+  setTagScopeAllSimilar,
   isPending,
   isEditingAlias,
   aliasInput,
@@ -216,10 +222,33 @@ function PanelContent({
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
             Tags
           </p>
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            {tags.map((tag) => (
+          <p className="text-xs text-gray-500 mb-1">All like this (future imports too)</p>
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {merchantTags.map((tag) => (
               <span
-                key={tag}
+                key={`m-${tag}`}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-900"
+              >
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => removeTag(tag)}
+                  className="text-amber-600 hover:text-amber-950 leading-none"
+                  disabled={isPending}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            {merchantTags.length === 0 && (
+              <span className="text-xs text-gray-400">None</span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mb-1">This payment only</p>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {paymentTags.map((tag) => (
+              <span
+                key={`p-${tag}`}
                 className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700"
               >
                 {tag}
@@ -233,8 +262,20 @@ function PanelContent({
                 </button>
               </span>
             ))}
-            {tags.length === 0 && <span className="text-xs text-gray-400">No tags yet</span>}
+            {paymentTags.length === 0 && (
+              <span className="text-xs text-gray-400">None</span>
+            )}
           </div>
+          <label className="flex items-center gap-2 text-xs text-gray-600 mb-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={tagScopeAllSimilar}
+              onChange={(e) => setTagScopeAllSimilar(e.target.checked)}
+              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-400"
+              disabled={isPending}
+            />
+            New tags apply to all like this (including future)
+          </label>
           <div className="flex gap-2">
             <input
               type="text"
@@ -285,14 +326,17 @@ function PanelContent({
 export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props) {
   const isSmall = useIsSmallScreen()
   const queryClient = useQueryClient()
-  const [tags, setTags] = useState<string[]>([])
+  const [paymentTags, setPaymentTags] = useState<string[]>([])
+  const [merchantTags, setMerchantTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
+  const [tagScopeAllSimilar, setTagScopeAllSimilar] = useState(true)
   const [isEditingAlias, setIsEditingAlias] = useState(false)
   const [aliasInput, setAliasInput] = useState('')
 
   useEffect(() => {
     if (payment) {
-      setTags(payment.tags)
+      setPaymentTags(payment.payment_tags)
+      setMerchantTags(payment.merchant_tags)
       setTagInput('')
       setIsEditingAlias(false)
       setAliasInput('')
@@ -309,10 +353,13 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
   }, [payment, onClose])
 
   const mutation = useMutation({
-    mutationFn: (nextTags: string[]) =>
-      api.payments.patch(payment!.payment_id, { tags: nextTags }),
-    onSuccess: () => {
+    mutationFn: (payload: { payment_tags: string[]; merchant_tags: string[] }) =>
+      api.payments.patch(payment!.payment_id, payload),
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
+      onPaymentUpdate?.(data)
+      setPaymentTags(data.payment_tags)
+      setMerchantTags(data.merchant_tags)
     },
   })
 
@@ -326,18 +373,33 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
     },
   })
 
-  const applyTags = (nextTags: string[]) => {
-    setTags(nextTags)
-    if (payment) mutation.mutate(nextTags)
+  const applyBuckets = (nextPayment: string[], nextMerchant: string[]) => {
+    setPaymentTags(nextPayment)
+    setMerchantTags(nextMerchant)
+    if (payment) mutation.mutate({ payment_tags: nextPayment, merchant_tags: nextMerchant })
   }
 
   const addTag = () => {
     const trimmed = tagInput.trim().toLowerCase()
-    if (trimmed && !tags.includes(trimmed)) applyTags([...tags, trimmed])
+    const merged = new Set([...paymentTags, ...merchantTags])
+    if (!trimmed || merged.has(trimmed)) {
+      setTagInput('')
+      return
+    }
+    if (tagScopeAllSimilar) {
+      applyBuckets(paymentTags, [...merchantTags, trimmed])
+    } else {
+      applyBuckets([...paymentTags, trimmed], merchantTags)
+    }
     setTagInput('')
   }
 
-  const removeTag = (tag: string) => applyTags(tags.filter((t) => t !== tag))
+  const removeTag = (tag: string) => {
+    const nextM = merchantTags.filter((t) => t !== tag)
+    const nextP = paymentTags.filter((t) => t !== tag)
+    if (nextM.length === merchantTags.length && nextP.length === paymentTags.length) return
+    applyBuckets(nextP, nextM)
+  }
 
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -362,12 +424,15 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
   }
 
   const contentProps: Omit<ContentProps, 'payment'> = {
-    tags,
+    paymentTags,
+    merchantTags,
     tagInput,
     setTagInput,
     addTag,
     removeTag,
     handleTagKeyDown,
+    tagScopeAllSimilar,
+    setTagScopeAllSimilar,
     isPending: mutation.isPending,
     isEditingAlias,
     aliasInput,
