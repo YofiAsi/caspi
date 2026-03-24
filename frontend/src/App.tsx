@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
+import { AuthGate, logoutAndRefresh, type AuthContext } from './components/AuthGate'
 import { PaymentList } from './components/PaymentList'
 import { PaymentDetailsPanel } from './components/PaymentDetailsPanel'
 import { BulkActionsPanel } from './components/BulkActionsPanel'
+import { PaymentAnalysisPanel } from './components/PaymentAnalysisPanel'
 import { ScrapeModal } from './components/ScrapeModal'
 import type { Payment, PaymentFilters } from './types'
 
@@ -33,7 +35,7 @@ function getMonthBounds(monthValue: string | null): Pick<PaymentFilters, 'dateFr
   return { dateFrom: formatLocalIsoDate(from), dateTo: formatLocalIsoDate(to) }
 }
 
-function AppInner() {
+function AppInner({ auth }: { auth: AuthContext }) {
   const now = useMemo(() => new Date(), [])
   const initialMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const [month, setMonth] = useState<string | null>(initialMonth)
@@ -42,7 +44,11 @@ function AppInner() {
   }))
   const [selectedPayments, setSelectedPayments] = useState<Payment[]>([])
   const [showScrapeModal, setShowScrapeModal] = useState(false)
+  const [analysisOpen, setAnalysisOpen] = useState(false)
+  const [analysisNonce, setAnalysisNonce] = useState(0)
   const queryClient = useQueryClient()
+
+  const analysisInitialBounds = useMemo(() => getMonthBounds(month), [month])
 
   const handleMonthChange = (value: string) => {
     if (!value) return
@@ -105,6 +111,16 @@ function AppInner() {
               </button>
             </div>
             <button
+              type="button"
+              onClick={() => {
+                setAnalysisNonce((n) => n + 1)
+                setAnalysisOpen(true)
+              }}
+              className="text-xs font-medium px-2.5 py-1.5 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+            >
+              Analysis
+            </button>
+            <button
               onClick={() => setShowScrapeModal(true)}
               className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               aria-label="Sync transactions"
@@ -114,6 +130,15 @@ function AppInner() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </button>
+            {auth.authRequired && auth.email ? (
+              <button
+                type="button"
+                onClick={() => void logoutAndRefresh(auth)}
+                className="text-xs text-gray-500 hover:text-gray-800 px-2 py-1 rounded-lg hover:bg-gray-100"
+              >
+                Sign out
+              </button>
+            ) : null}
           </div>
         </header>
         <div
@@ -142,6 +167,13 @@ function AppInner() {
           />
         ) : null}
       </div>
+      {analysisOpen ? (
+        <PaymentAnalysisPanel
+          key={analysisNonce}
+          onClose={() => setAnalysisOpen(false)}
+          initialBounds={analysisInitialBounds}
+        />
+      ) : null}
       {showScrapeModal && (
         <ScrapeModal
           onClose={() => setShowScrapeModal(false)}
@@ -155,7 +187,7 @@ function AppInner() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppInner />
+      <AuthGate>{(auth) => <AppInner auth={auth} />}</AuthGate>
     </QueryClientProvider>
   )
 }

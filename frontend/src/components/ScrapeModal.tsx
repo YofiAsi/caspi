@@ -99,6 +99,7 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
     try {
       const res = await fetch(`/api/scrape/isracard/bulk?start_date=${startDate}`, {
         method: 'POST',
+        credentials: 'include',
         signal: controller.signal,
       })
 
