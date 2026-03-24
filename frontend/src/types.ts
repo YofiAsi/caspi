@@ -26,6 +26,8 @@ export interface Payment {
   display_name: string
   merchant_alias: string | null
   payment_type: string
+  payment_tags: string[]
+  merchant_tags: string[]
   tags: string[]
   share_amount: number | null
   share_currency: string | null
@@ -40,6 +42,8 @@ export interface ScrapeResult {
 
 export interface PatchPaymentBody {
   tags?: string[]
+  payment_tags?: string[]
+  merchant_tags?: string[]
   payment_type?: string
   share_amount?: number | null
   share_currency?: string | null

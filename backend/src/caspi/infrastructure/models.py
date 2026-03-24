@@ -52,6 +52,13 @@ class MerchantAliasModel(Base):
     alias: Mapped[str] = mapped_column(String, nullable=False)
 
 
+class MerchantTagModel(Base):
+    __tablename__ = "merchant_tags"
+
+    merchant_key: Mapped[str] = mapped_column(String, primary_key=True)
+    tags: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+
+
 class SharingRuleModel(Base):
     __tablename__ = "sharing_rules"
 
