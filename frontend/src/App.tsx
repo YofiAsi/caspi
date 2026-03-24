@@ -76,7 +76,7 @@ function AppInner() {
 
   return (
     <>
-      <div className={`h-screen flex flex-col bg-gray-50 transition-[padding] duration-200 ${panelOpen ? 'md:pr-[352px]' : ''}`}>
+      <div className="h-screen flex flex-col bg-gray-50">
         <header className="shrink-0 bg-white border-b border-gray-200 px-4 sm:px-6 flex items-center justify-between gap-4" style={{ height: '73px' }}>
           <div>
             <h1 className="text-xl font-bold text-gray-900 tracking-tight">Caspi</h1>
@@ -116,15 +116,19 @@ function AppInner() {
             </button>
           </div>
         </header>
-        <main className="flex-1 overflow-hidden max-w-5xl w-full mx-auto bg-white sm:my-4 sm:rounded-2xl sm:shadow-sm sm:border sm:border-gray-200 flex flex-col">
-          <div className="flex-1 overflow-y-auto">
-            <PaymentList
-              filters={filters}
-              selectedPaymentIds={selectedPaymentIds}
-              onSelectionChange={setSelectedPayments}
-            />
-          </div>
-        </main>
+        <div
+          className={`flex-1 min-h-0 flex flex-col transition-[padding] duration-200 ${panelOpen ? 'md:pr-[352px]' : ''}`}
+        >
+          <main className="flex-1 overflow-hidden max-w-5xl w-full mx-auto bg-white sm:my-4 sm:rounded-2xl sm:shadow-sm sm:border sm:border-gray-200 flex flex-col">
+            <div className="flex-1 overflow-y-auto">
+              <PaymentList
+                filters={filters}
+                selectedPaymentIds={selectedPaymentIds}
+                onSelectionChange={setSelectedPayments}
+              />
+            </div>
+          </main>
+        </div>
         {selectedPayments.length === 1 ? (
           <PaymentDetailsPanel
             payment={selectedPayments[0]}
