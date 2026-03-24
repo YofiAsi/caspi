@@ -15,6 +15,13 @@ const queryClient = new QueryClient({
   },
 })
 
+function formatLocalIsoDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function getMonthBounds(monthValue: string | null): Pick<PaymentFilters, 'dateFrom' | 'dateTo'> {
   if (!monthValue) return {}
   const [yearStr, monthStr] = monthValue.split('-')
@@ -23,9 +30,7 @@ function getMonthBounds(monthValue: string | null): Pick<PaymentFilters, 'dateFr
   if (!year || !month) return {}
   const from = new Date(year, month - 1, 1)
   const to = new Date(year, month, 0)
-  const toIso = to.toISOString().slice(0, 10)
-  const fromIso = from.toISOString().slice(0, 10)
-  return { dateFrom: fromIso, dateTo: toIso }
+  return { dateFrom: formatLocalIsoDate(from), dateTo: formatLocalIsoDate(to) }
 }
 
 function AppInner() {
@@ -49,7 +54,15 @@ function AppInner() {
   }
 
   const shiftMonth = (delta: number) => {
-    const base = month ? new Date(`${month}-01`) : new Date()
+    let base: Date
+    if (month) {
+      const [yStr, mStr] = month.split('-')
+      const y = Number(yStr)
+      const m = Number(mStr)
+      base = y && m ? new Date(y, m - 1, 1) : new Date()
+    } else {
+      base = new Date()
+    }
     base.setMonth(base.getMonth() + delta)
     const next = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`
     handleMonthChange(next)
