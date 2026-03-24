@@ -59,4 +59,7 @@ export const api = {
         body: JSON.stringify(body),
       }),
   },
+  tags: {
+    list: (): Promise<{ tags: string[] }> => request('/tags'),
+  },
 }

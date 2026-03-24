@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Payment } from '../types'
 import { api } from '../api/client'
 import { formatCurrency } from '../utils/currency'
@@ -37,6 +37,151 @@ function Row({ label, value }: { label: string; value?: string | number | null }
   )
 }
 
+function TagAutocompleteField({
+  value,
+  onChange,
+  allTags,
+  paymentTags,
+  merchantTags,
+  disabled,
+  onCommitValue,
+}: {
+  value: string
+  onChange: (v: string) => void
+  allTags: string[]
+  paymentTags: string[]
+  merchantTags: string[]
+  disabled: boolean
+  onCommitValue: (trimmedLower: string) => void
+}) {
+  const listId = useId()
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState(false)
+  const [highlighted, setHighlighted] = useState(-1)
+
+  const suggestions = useMemo(() => {
+    const applied = new Set([...paymentTags, ...merchantTags])
+    const unused = allTags.filter((t) => !applied.has(t))
+    const q = value.trim().toLowerCase()
+    if (q) return unused.filter((t) => t.includes(q)).slice(0, 50)
+    return unused.slice(0, 20)
+  }, [allTags, paymentTags, merchantTags, value])
+
+  useEffect(() => {
+    setHighlighted(-1)
+  }, [suggestions])
+
+  useEffect(() => {
+    if (suggestions.length === 0) setOpen(false)
+  }, [suggestions.length])
+
+  useEffect(() => {
+    const onDocMouseDown = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    return () => document.removeEventListener('mousedown', onDocMouseDown)
+  }, [])
+
+  const pick = (tag: string) => {
+    onCommitValue(tag)
+    onChange('')
+    setOpen(false)
+    setHighlighted(-1)
+  }
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      if (open) {
+        e.preventDefault()
+        e.stopPropagation()
+        setOpen(false)
+        setHighlighted(-1)
+      }
+      return
+    }
+    if (suggestions.length === 0) {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        onCommitValue(value.trim().toLowerCase())
+      }
+      return
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setOpen(true)
+      setHighlighted((i) => {
+        if (i < 0) return 0
+        return i < suggestions.length - 1 ? i + 1 : i
+      })
+      return
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setOpen(true)
+      setHighlighted((i) => (i <= 0 ? 0 : i - 1))
+      return
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (open && highlighted >= 0 && suggestions[highlighted]) {
+        pick(suggestions[highlighted])
+      } else {
+        onCommitValue(value.trim().toLowerCase())
+      }
+    }
+  }
+
+  const showList = open && suggestions.length > 0
+
+  return (
+    <div ref={rootRef} className="relative flex-1 min-w-0">
+      <input
+        type="text"
+        role="combobox"
+        aria-expanded={showList}
+        aria-controls={listId}
+        aria-autocomplete="list"
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value)
+          setOpen(true)
+        }}
+        onFocus={() => setOpen(suggestions.length > 0)}
+        onKeyDown={onKeyDown}
+        placeholder="Add a tag…"
+        className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white"
+        disabled={disabled}
+      />
+      {showList && (
+        <ul
+          id={listId}
+          role="listbox"
+          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-40 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+        >
+          {suggestions.map((tag, idx) => (
+            <li
+              key={tag}
+              role="option"
+              aria-selected={idx === highlighted}
+              className={`cursor-pointer px-2.5 py-1.5 text-xs ${
+                idx === highlighted ? 'bg-indigo-50 text-indigo-900' : 'text-gray-800 hover:bg-gray-50'
+              }`}
+              onMouseDown={(ev) => {
+                ev.preventDefault()
+                pick(tag)
+              }}
+              onMouseEnter={() => setHighlighted(idx)}
+            >
+              {tag}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 interface ContentProps {
   payment: Payment
   paymentTags: string[]
@@ -44,8 +189,9 @@ interface ContentProps {
   tagInput: string
   setTagInput: (v: string) => void
   addTag: () => void
+  commitTag: (trimmedLower: string) => void
   removeTag: (tag: string) => void
-  handleTagKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void
+  allTags: string[]
   tagScopeAllSimilar: boolean
   setTagScopeAllSimilar: (v: boolean) => void
   isPending: boolean
@@ -65,8 +211,9 @@ function PanelContent({
   tagInput,
   setTagInput,
   addTag,
+  commitTag,
   removeTag,
-  handleTagKeyDown,
+  allTags,
   tagScopeAllSimilar,
   setTagScopeAllSimilar,
   isPending,
@@ -277,14 +424,14 @@ function PanelContent({
             New tags apply to all like this (including future)
           </label>
           <div className="flex gap-2">
-            <input
-              type="text"
+            <TagAutocompleteField
               value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={handleTagKeyDown}
-              placeholder="Add a tag…"
-              className="flex-1 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white"
+              onChange={setTagInput}
+              allTags={allTags}
+              paymentTags={paymentTags}
+              merchantTags={merchantTags}
               disabled={isPending}
+              onCommitValue={commitTag}
             />
             <button
               type="button"
@@ -333,6 +480,14 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
   const [isEditingAlias, setIsEditingAlias] = useState(false)
   const [aliasInput, setAliasInput] = useState('')
 
+  const { data: tagsData } = useQuery({
+    queryKey: ['tags'],
+    queryFn: () => api.tags.list(),
+    staleTime: 120_000,
+    enabled: payment != null,
+  })
+  const allTags = tagsData?.tags ?? []
+
   useEffect(() => {
     if (payment) {
       setPaymentTags(payment.payment_tags)
@@ -357,6 +512,7 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
       api.payments.patch(payment!.payment_id, payload),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['tags'] })
       onPaymentUpdate?.(data)
       setPaymentTags(data.payment_tags)
       setMerchantTags(data.merchant_tags)
@@ -379,8 +535,7 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
     if (payment) mutation.mutate({ payment_tags: nextPayment, merchant_tags: nextMerchant })
   }
 
-  const addTag = () => {
-    const trimmed = tagInput.trim().toLowerCase()
+  const commitTag = (trimmed: string) => {
     const merged = new Set([...paymentTags, ...merchantTags])
     if (!trimmed || merged.has(trimmed)) {
       setTagInput('')
@@ -394,18 +549,13 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
     setTagInput('')
   }
 
+  const addTag = () => commitTag(tagInput.trim().toLowerCase())
+
   const removeTag = (tag: string) => {
     const nextM = merchantTags.filter((t) => t !== tag)
     const nextP = paymentTags.filter((t) => t !== tag)
     if (nextM.length === merchantTags.length && nextP.length === paymentTags.length) return
     applyBuckets(nextP, nextM)
-  }
-
-  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      addTag()
-    }
   }
 
   const startEditAlias = () => {
@@ -429,8 +579,9 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
     tagInput,
     setTagInput,
     addTag,
+    commitTag,
     removeTag,
-    handleTagKeyDown,
+    allTags,
     tagScopeAllSimilar,
     setTagScopeAllSimilar,
     isPending: mutation.isPending,
