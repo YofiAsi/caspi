@@ -41,9 +41,6 @@ export function PaymentCard({ payment, onClick, isSelected }: Props) {
           <p className="text-sm font-medium text-gray-900 truncate">
             {payment.display_name}
           </p>
-          {payment.merchant_alias && (
-            <p className="text-[10px] text-gray-400 truncate">{payment.merchant}</p>
-          )}
           {payment.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {payment.tags.map((tag) => (
