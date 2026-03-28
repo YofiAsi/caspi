@@ -2,7 +2,10 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Payment } from '../types'
 import { api } from '../api/client'
+import { getTagAccentColor } from '../lib/tagColors'
 import { formatCurrency } from '../utils/currency'
+import { paymentShowsOriginalCurrency } from '../utils/paymentExtra'
+import { TagChip } from './TagChip'
 
 interface Props {
   payment: Payment | null
@@ -164,7 +167,7 @@ function TagAutocompleteField({
               key={tag}
               role="option"
               aria-selected={idx === highlighted}
-              className={`cursor-pointer px-2.5 py-1.5 text-xs ${
+              className={`cursor-pointer px-2.5 py-1.5 text-xs flex items-center gap-2 ${
                 idx === highlighted ? 'bg-indigo-50 text-indigo-900' : 'text-gray-800 hover:bg-gray-50'
               }`}
               onMouseDown={(ev) => {
@@ -173,6 +176,11 @@ function TagAutocompleteField({
               }}
               onMouseEnter={() => setHighlighted(idx)}
             >
+              <span
+                className="shrink-0 size-2 rounded-full"
+                style={{ backgroundColor: getTagAccentColor(tag) }}
+                aria-hidden
+              />
               {tag}
             </li>
           ))}
@@ -238,10 +246,7 @@ function PanelContent({
   const isShared = payment.share_amount !== null && payment.share_currency !== null
   const totalDiffers = payment.effective_amount !== payment.amount
 
-  const showOriginal =
-    extra.original_currency &&
-    extra.original_currency !== payment.currency &&
-    extra.original_amount != null
+  const showOriginal = paymentShowsOriginalCurrency(payment)
 
   const processedDateStr =
     extra.processed_date && extra.processed_date.slice(0, 10) !== payment.date
@@ -372,20 +377,13 @@ function PanelContent({
           <p className="text-xs text-gray-500 mb-1">All like this (future imports too)</p>
           <div className="flex flex-wrap gap-1.5 mb-3">
             {merchantTags.map((tag) => (
-              <span
+              <TagChip
                 key={`m-${tag}`}
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-900"
-              >
-                {tag}
-                <button
-                  type="button"
-                  onClick={() => removeTag(tag)}
-                  className="text-amber-600 hover:text-amber-950 leading-none"
-                  disabled={isPending}
-                >
-                  ×
-                </button>
-              </span>
+                tag={tag}
+                className="px-2.5 py-0.5 text-xs"
+                onRemove={() => removeTag(tag)}
+                disabled={isPending}
+              />
             ))}
             {merchantTags.length === 0 && (
               <span className="text-xs text-gray-400">None</span>
@@ -394,20 +392,13 @@ function PanelContent({
           <p className="text-xs text-gray-500 mb-1">This payment only</p>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {paymentTags.map((tag) => (
-              <span
+              <TagChip
                 key={`p-${tag}`}
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700"
-              >
-                {tag}
-                <button
-                  type="button"
-                  onClick={() => removeTag(tag)}
-                  className="text-indigo-400 hover:text-indigo-700 leading-none"
-                  disabled={isPending}
-                >
-                  ×
-                </button>
-              </span>
+                tag={tag}
+                className="px-2.5 py-0.5 text-xs"
+                onRemove={() => removeTag(tag)}
+                disabled={isPending}
+              />
             ))}
             {paymentTags.length === 0 && (
               <span className="text-xs text-gray-400">None</span>

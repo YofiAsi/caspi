@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Payment } from '../types'
 import { api } from '../api/client'
+import { TagChip } from './TagChip'
 
 interface Props {
   payments: Payment[]
@@ -118,20 +119,12 @@ function BulkTagDialog({ payments, onClose, onSaved }: DialogProps) {
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {tags.map((tag) => (
-                  <span
+                  <TagChip
                     key={tag}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-600 font-medium"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => removeTag(tag)}
-                      className="leading-none text-indigo-400 hover:text-indigo-700"
-                      aria-label={`Remove tag ${tag}`}
-                    >
-                      ×
-                    </button>
-                  </span>
+                    tag={tag}
+                    className="px-2 py-0.5 text-xs"
+                    onRemove={() => removeTag(tag)}
+                  />
                 ))}
               </div>
             )}
