@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import type { Payment } from '../types'
+import { TagChip } from './TagChip'
 
 interface Props {
   payment: Payment | null
@@ -162,19 +163,12 @@ export function PaymentDialog({ payment, onClose }: Props) {
                   <p className="text-xs text-gray-500 mb-1">All like this (future imports too)</p>
                   <div className="flex flex-wrap gap-1.5 mb-3">
                     {merchantTags.map((tag) => (
-                      <span
+                      <TagChip
                         key={`m-${tag}`}
-                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-900"
-                      >
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag)}
-                          className="text-amber-600 hover:text-amber-950 leading-none"
-                        >
-                          ×
-                        </button>
-                      </span>
+                        tag={tag}
+                        className="px-2.5 py-0.5 text-xs"
+                        onRemove={() => removeTag(tag)}
+                      />
                     ))}
                     {merchantTags.length === 0 && (
                       <span className="text-xs text-gray-400">None</span>
@@ -183,19 +177,12 @@ export function PaymentDialog({ payment, onClose }: Props) {
                   <p className="text-xs text-gray-500 mb-1">This payment only</p>
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {paymentTags.map((tag) => (
-                      <span
+                      <TagChip
                         key={`p-${tag}`}
-                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700"
-                      >
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag)}
-                          className="text-indigo-400 hover:text-indigo-700 leading-none"
-                        >
-                          ×
-                        </button>
-                      </span>
+                        tag={tag}
+                        className="px-2.5 py-0.5 text-xs"
+                        onRemove={() => removeTag(tag)}
+                      />
                     ))}
                     {paymentTags.length === 0 && (
                       <span className="text-xs text-gray-400">None</span>

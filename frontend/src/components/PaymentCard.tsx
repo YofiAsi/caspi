@@ -1,5 +1,7 @@
 import type { Payment } from '../types'
 import { formatCurrency } from '../utils/currency'
+import { paymentShowsOriginalCurrency } from '../utils/paymentExtra'
+import { TagChip } from './TagChip'
 
 interface Props {
   payment: Payment
@@ -16,6 +18,8 @@ export function PaymentCard({ payment, onClick, isSelected }: Props) {
   const amount = formatCurrency(payment.effective_amount, payment.currency)
 
   const isShared = payment.share_amount !== null
+  const showOriginal = paymentShowsOriginalCurrency(payment)
+  const { extra } = payment
 
   return (
     <div
@@ -43,12 +47,7 @@ export function PaymentCard({ payment, onClick, isSelected }: Props) {
           {payment.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {payment.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="px-1.5 py-0 rounded-full text-xs bg-indigo-50 text-indigo-600 font-medium"
-                >
-                  {tag}
-                </span>
+                <TagChip key={tag} tag={tag} className="px-1.5 py-0 text-xs" />
               ))}
             </div>
           )}
@@ -56,6 +55,11 @@ export function PaymentCard({ payment, onClick, isSelected }: Props) {
 
         <div className="shrink-0 text-right">
           <p className="text-sm font-semibold text-gray-900">{amount}</p>
+          {showOriginal && (
+            <p className="text-[10px] text-gray-400 truncate">
+              {formatCurrency(extra.original_amount!, extra.original_currency!)}
+            </p>
+          )}
           {isShared && (
             <p className="text-xs text-emerald-600 font-medium">shared</p>
           )}
