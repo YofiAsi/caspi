@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
+import { MonthPickerField } from './MonthPickerField'
+import { currentYearMonth, monthBounds, parseYearMonth } from '../utils/monthBounds'
 
 interface Props {
   onClose: () => void
@@ -38,19 +40,9 @@ function sevenDaysAgo(): string {
   return d.toISOString().slice(0, 10)
 }
 
-function estimatedMinutes(startDateStr: string): number {
-  const start = new Date(startDateStr)
-  const now = new Date()
-  const months =
-    (now.getFullYear() - start.getFullYear()) * 12 +
-    (now.getMonth() - start.getMonth()) +
-    1
-  return Math.ceil((months * (30 + 60)) / 60)
-}
-
 export function ScrapeModal({ onClose, onSyncComplete }: Props) {
   const [mode, setMode] = useState<Mode>('quick')
-  const [startDate, setStartDate] = useState('2024-01-01')
+  const [syncMonth, setSyncMonth] = useState(currentYearMonth)
   const [phase, setPhase] = useState<Phase>('idle')
   const [progress, setProgress] = useState<Progress | null>(null)
   const [cooldown, setCooldown] = useState<Cooldown | null>(null)
@@ -97,7 +89,10 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
     abortRef.current = controller
 
     try {
-      const res = await fetch(`/api/scrape/isracard/bulk?start_date=${startDate}`, {
+      const { year, month } = parseYearMonth(syncMonth)
+      const { start, end } = monthBounds(year, month)
+      const params = new URLSearchParams({ start_date: start, end_date: end })
+      const res = await fetch(`/api/scrape/isracard/bulk?${params}`, {
         method: 'POST',
         credentials: 'include',
         signal: controller.signal,
@@ -201,7 +196,7 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
                       : 'text-gray-500 hover:bg-gray-50'
                   }`}
                 >
-                  Full Sync
+                  Month sync
                 </button>
               </div>
 
@@ -212,19 +207,16 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
               ) : (
                 <div className="flex flex-col gap-2">
                   <p className="text-sm text-gray-500">
-                    Scrapes one month at a time with a 60-second cooldown between each. Use this for initial setup.
+                    Imports transactions for one calendar month. Pick the month below, then start sync.
                   </p>
-                  <label className="text-xs font-medium text-gray-600">Start date</label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    max={new Date().toISOString().slice(0, 10)}
-                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  <label className="text-xs font-medium text-gray-600" htmlFor="sync-month-field">
+                    Month
+                  </label>
+                  <MonthPickerField
+                    id="sync-month-field"
+                    value={syncMonth}
+                    onChange={setSyncMonth}
                   />
-                  <p className="text-xs text-amber-600">
-                    ⏱ Estimated time: ~{estimatedMinutes(startDate)} min
-                  </p>
                 </div>
               )}
 
@@ -232,7 +224,7 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
                 onClick={handleStart}
                 className="mt-1 w-full py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
               >
-                {mode === 'quick' ? 'Sync Last 7 Days' : 'Start Full Sync'}
+                {mode === 'quick' ? 'Sync Last 7 Days' : 'Sync month'}
               </button>
             </>
           )}

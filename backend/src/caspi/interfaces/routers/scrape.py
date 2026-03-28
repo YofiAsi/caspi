@@ -1,3 +1,4 @@
+import calendar
 from datetime import date
 from decimal import Decimal
 from uuid import UUID
@@ -18,6 +19,15 @@ from caspi.infrastructure.repositories import SqlImportBatchRepository, SqlPayme
 from caspi.settings import settings
 
 router = APIRouter(prefix="/api/scrape", tags=["scrape"])
+
+
+def _is_single_calendar_month_window(start: date, end: date) -> bool:
+    if start.day != 1:
+        return False
+    if start.year != end.year or start.month != end.month:
+        return False
+    _, last_day = calendar.monthrange(end.year, end.month)
+    return end.day == last_day
 
 
 class ScrapeIsracardResponse(BaseModel):
@@ -70,6 +80,11 @@ async def scrape_isracard(start_date: date | None = None, db: AsyncSession = Dep
 
 @router.post("/isracard/bulk")
 async def bulk_scrape_isracard(start_date: date, end_date: date | None = None):
+    if end_date is not None and not _is_single_calendar_month_window(start_date, end_date):
+        raise HTTPException(
+            status_code=422,
+            detail="start_date must be the first day of a month and end_date the last day of that month",
+        )
     request = BulkScrapeIsracardRequest(
         id=settings.isracard_id,
         card6_digits=settings.isracard_card6_digits,
