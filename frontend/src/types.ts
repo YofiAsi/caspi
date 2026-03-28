@@ -57,4 +57,56 @@ export interface PaymentFilters {
   dateTo?: string
   amountMin?: number
   amountMax?: number
+  taggedOnly?: boolean
+}
+
+export interface CurrencyTotals {
+  currency: string
+  sum_effective: string
+  sum_amount: string
+}
+
+export interface TagSummaryRow {
+  tag: string
+  currency: string
+  sum_effective: string
+  payment_count: number
+}
+
+export interface UntaggedByCurrency {
+  currency: string
+  payment_count: number
+  sum_effective: string
+}
+
+export interface PaymentTypeSummaryRow {
+  payment_type: string
+  currency: string
+  payment_count: number
+  sum_effective: string
+}
+
+export interface MerchantSummaryRow {
+  display_name: string
+  currency: string
+  payment_count: number
+  sum_effective: string
+}
+
+export interface MonthSummaryRow {
+  year: number
+  month: number
+  currency: string
+  payment_count: number
+  sum_effective: string
+}
+
+export interface PaymentSummary {
+  payment_count: number
+  totals_by_currency: CurrencyTotals[]
+  by_tag: TagSummaryRow[]
+  untagged_by_currency: UntaggedByCurrency[]
+  by_payment_type: PaymentTypeSummaryRow[]
+  top_merchants: MerchantSummaryRow[]
+  by_month: MonthSummaryRow[]
 }
