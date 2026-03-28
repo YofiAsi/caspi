@@ -36,6 +36,9 @@ function appendPaymentFilters(params: URLSearchParams, filters?: PaymentFilters)
   if (filters?.taggedOnly) {
     params.set('tagged_only', 'true')
   }
+  if (filters?.q?.trim()) {
+    params.set('q', filters.q.trim())
+  }
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {

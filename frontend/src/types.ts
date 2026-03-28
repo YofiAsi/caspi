@@ -58,6 +58,7 @@ export interface PaymentFilters {
   amountMin?: number
   amountMax?: number
   taggedOnly?: boolean
+  q?: string
 }
 
 export interface PaymentListCursor {

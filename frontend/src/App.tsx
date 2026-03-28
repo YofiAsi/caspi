@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
@@ -7,6 +7,7 @@ import { PaymentList } from './components/PaymentList'
 import { PaymentDetailsPanel } from './components/PaymentDetailsPanel'
 import { BulkActionsPanel } from './components/BulkActionsPanel'
 import { PaymentAnalysisPage } from './components/PaymentAnalysisPage'
+import { PaymentListSearchFab } from './components/PaymentListSearchFab'
 import type { Payment, PaymentFilters } from './types'
 
 const queryClient = new QueryClient({
@@ -18,10 +19,9 @@ const queryClient = new QueryClient({
   },
 })
 
-const emptyHomeFilters: PaymentFilters = {}
-
 function HomePage() {
   const [listScrollEl, setListScrollEl] = useState<HTMLDivElement | null>(null)
+  const [listFilters, setListFilters] = useState<PaymentFilters>({})
   const [selectedPayments, setSelectedPayments] = useState<Payment[]>([])
 
   const selectedPaymentIds = useMemo(
@@ -29,6 +29,19 @@ function HomePage() {
     [selectedPayments],
   )
   const panelOpen = selectedPayments.length > 0
+
+  const handleSearchQChange = useCallback((q: string | undefined) => {
+    setListFilters((prev) => {
+      if (prev.q === q) return prev
+      const next = { ...prev }
+      if (q === undefined) {
+        delete next.q
+      } else {
+        next.q = q
+      }
+      return next
+    })
+  }, [])
 
   return (
     <div className="h-full min-h-0 flex flex-col">
@@ -38,13 +51,14 @@ function HomePage() {
         <main className="flex-1 overflow-hidden max-w-5xl w-full mx-auto bg-white sm:my-4 sm:rounded-2xl sm:shadow-sm sm:border sm:border-gray-200 flex flex-col">
           <div ref={setListScrollEl} className="flex-1 overflow-y-auto min-h-0">
             <PaymentList
-              filters={emptyHomeFilters}
+              filters={listFilters}
               scrollRoot={listScrollEl}
               selectedPaymentIds={selectedPaymentIds}
               onSelectionChange={setSelectedPayments}
             />
           </div>
         </main>
+        <PaymentListSearchFab searchQ={listFilters.q} onSearchQChange={handleSearchQChange} />
       </div>
       {selectedPayments.length === 1 ? (
         <PaymentDetailsPanel
