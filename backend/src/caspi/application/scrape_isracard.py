@@ -24,6 +24,26 @@ class ScrapeIsracardResult:
     imported_at: datetime
 
 
+def _decimal_to_json_number(d: Decimal) -> float | int:
+    q = d.quantize(Decimal("0.01"))
+    if (q % Decimal("1")).is_zero():
+        return int(q)
+    return float(q)
+
+
+def aligned_original_amount_for_store(charged_amount: Decimal, original_raw: object) -> float | int | None:
+    if original_raw is None:
+        return None
+    try:
+        parsed = Decimal(str(original_raw))
+    except Exception:
+        return None
+    if charged_amount == 0 or parsed == 0:
+        return _decimal_to_json_number(parsed)
+    aligned = abs(parsed) if charged_amount > 0 else -abs(parsed)
+    return _decimal_to_json_number(aligned)
+
+
 def _apply_sharing_rule(payment: Payment, rule: SharingRule) -> None:
     target = payment.merchant or payment.description
     if not rule.matches(target):
@@ -98,7 +118,9 @@ class ScrapeIsracardUseCase:
                     merchant=description,
                     extra={
                         "account_number": account_number,
-                        "original_amount": txn.get("originalAmount"),
+                        "original_amount": aligned_original_amount_for_store(
+                            charged_amount, txn.get("originalAmount")
+                        ),
                         "original_currency": txn.get("originalCurrency"),
                         "processed_date": txn.get("processedDate"),
                         "memo": txn.get("memo"),
