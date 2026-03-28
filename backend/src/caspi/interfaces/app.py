@@ -3,7 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from caspi.interfaces.auth_middleware import RequireSessionMiddleware
-from caspi.interfaces.routers.auth import register_google_oauth, router as auth_router
+from caspi.interfaces.routers.auth import (
+    google_callback,
+    register_google_oauth,
+    router as auth_router,
+)
 from caspi.interfaces.routers.payments import router as payments_router
 from caspi.interfaces.routers.scrape import router as scrape_router
 from caspi.interfaces.routers.sharing_rules import router as sharing_rules_router
@@ -33,6 +37,8 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+if settings.auth_enabled and settings.oauth_google_callback_path != "/api/auth/google/callback":
+    app.add_api_route(settings.oauth_google_callback_path, google_callback, methods=["GET"])
 app.include_router(scrape_router)
 app.include_router(sharing_rules_router)
 app.include_router(payments_router)

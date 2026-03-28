@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from starlette.responses import Response
 
+from caspi.public_request_url import resolve_public_base
 from caspi.settings import settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -21,10 +22,6 @@ def register_google_oauth() -> None:
         server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
         client_kwargs={"scope": "openid email profile"},
     )
-
-
-def _google_redirect_uri() -> str:
-    return f"{settings.public_app_url.rstrip('/')}/api/auth/google/callback"
 
 
 async def _google_userinfo(token: dict) -> dict:
@@ -47,17 +44,21 @@ async def _google_userinfo(token: dict) -> dict:
 async def google_start(request: Request):
     if not settings.auth_enabled:
         raise HTTPException(status_code=404)
-    return await oauth.google.authorize_redirect(request, _google_redirect_uri())
+    base = resolve_public_base(request)
+    request.session["oauth_public_base"] = base
+    cb_path = settings.oauth_google_callback_path
+    redirect_uri = f"{base}{cb_path}"
+    return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
 @router.get("/google/callback")
 async def google_callback(request: Request):
     if not settings.auth_enabled:
         raise HTTPException(status_code=404)
+    base = request.session.pop("oauth_public_base", None) or (settings.public_app_url or "").rstrip("/")
     token = await oauth.google.authorize_access_token(request)
     user = await _google_userinfo(token)
     email = user.get("email")
-    base = settings.public_app_url.rstrip("/")
     if not email:
         return RedirectResponse(url=f"{base}/?error=no_email", status_code=302)
     allowed = (settings.allowed_google_email or "").strip().lower()

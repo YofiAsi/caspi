@@ -1,6 +1,8 @@
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_DEFAULT_OAUTH_CALLBACK_PATH = "/api/auth/google/callback"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -19,7 +21,26 @@ class Settings(BaseSettings):
     allowed_google_email: str | None = None
     session_secret: str | None = None
     public_app_url: str | None = None
+    public_app_trusted_hosts: str = ""
+    public_app_trusted_host_suffixes: str = ""
+    oauth_google_redirect_path: str = _DEFAULT_OAUTH_CALLBACK_PATH
     session_cookie_secure: bool = False
+
+    @property
+    def oauth_google_callback_path(self) -> str:
+        p = (self.oauth_google_redirect_path or "").strip() or _DEFAULT_OAUTH_CALLBACK_PATH
+        if not p.startswith("/"):
+            p = "/" + p
+        p = p.rstrip("/") or _DEFAULT_OAUTH_CALLBACK_PATH
+        return p
+
+    @property
+    def trusted_public_hosts(self) -> list[str]:
+        return [x.strip() for x in self.public_app_trusted_hosts.split(",") if x.strip()]
+
+    @property
+    def trusted_public_host_suffixes(self) -> list[str]:
+        return [x.strip() for x in self.public_app_trusted_host_suffixes.split(",") if x.strip()]
 
     @property
     def auth_enabled(self) -> bool:
@@ -41,6 +62,9 @@ class Settings(BaseSettings):
             missing.append("SESSION_SECRET")
         if not (self.public_app_url or "").strip():
             missing.append("PUBLIC_APP_URL")
+        cb = self.oauth_google_callback_path
+        if ".." in cb or "\n" in cb or " " in cb:
+            raise ValueError("OAUTH_GOOGLE_REDIRECT_PATH must not contain .., newlines, or spaces")
         if missing:
             raise ValueError(
                 "When auth is enabled (ENVIRONMENT=production or AUTH_FORCE_ENABLE=true), "
