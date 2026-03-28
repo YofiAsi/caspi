@@ -1,11 +1,21 @@
 import asyncio
 import os
+import sys
 from logging.config import fileConfig
+from pathlib import Path
 
-from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlalchemy import pool
+from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
+
+_backend_root = Path(__file__).resolve().parents[1]
+_src = _backend_root / "src"
+if _src.is_dir():
+    _src_str = str(_src)
+    if _src_str not in sys.path:
+        sys.path.insert(0, _src_str)
+
 from caspi.infrastructure.models import Base
 
 config = context.config
