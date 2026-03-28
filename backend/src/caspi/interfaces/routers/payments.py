@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import and_, cast, func, literal, not_, or_, select
+from sqlalchemy import String, and_, cast, func, literal, not_, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -113,6 +113,20 @@ class PaymentSummaryResponse(BaseModel):
 
 
 TOP_MERCHANTS_PER_CURRENCY = 10
+
+
+def _escape_ilike_pattern(fragment: str) -> str:
+    return (
+        fragment.replace("\\", "\\\\")
+        .replace("%", "\\%")
+        .replace("_", "\\_")
+    )
+
+
+def _search_tokens(search_q: Optional[str]) -> list[str]:
+    if not search_q or not str(search_q).strip():
+        return []
+    return [t for t in str(search_q).split() if t]
 
 
 def _merchant_key(merchant: Optional[str], description: str) -> str:
@@ -301,13 +315,22 @@ async def _query_payments(
     amount_max: Optional[Decimal],
     tagged_only: Optional[bool] = None,
     *,
+    search_q: Optional[str] = None,
     limit: Optional[int] = None,
     after_date: Optional[date] = None,
     after_payment_id: Optional[UUID] = None,
 ):
-    stmt = select(PaymentModel).outerjoin(
-        MerchantTagModel,
-        MerchantTagModel.merchant_key == func.coalesce(PaymentModel.merchant, PaymentModel.description),
+    merchant_key_expr = func.coalesce(PaymentModel.merchant, PaymentModel.description)
+    stmt = (
+        select(PaymentModel)
+        .outerjoin(
+            MerchantTagModel,
+            MerchantTagModel.merchant_key == merchant_key_expr,
+        )
+        .outerjoin(
+            MerchantAliasModel,
+            MerchantAliasModel.original_merchant == merchant_key_expr,
+        )
     )
     conditions = []
 
@@ -352,6 +375,26 @@ async def _query_payments(
                 func.jsonb_array_length(merchant_tags_col) > 0,
             )
         )
+
+    tokens = _search_tokens(search_q)
+    if tokens:
+        empty_jsonb_tags = cast(literal("[]"), JSONB)
+        merchant_tags_text = cast(
+            func.coalesce(MerchantTagModel.tags, empty_jsonb_tags),
+            String,
+        )
+        payment_tags_text = cast(PaymentModel.tags, String)
+        for token in tokens:
+            pat = f"%{_escape_ilike_pattern(token)}%"
+            conditions.append(
+                or_(
+                    PaymentModel.description.ilike(pat, escape="\\"),
+                    func.coalesce(PaymentModel.merchant, "").ilike(pat, escape="\\"),
+                    MerchantAliasModel.alias.ilike(pat, escape="\\"),
+                    payment_tags_text.ilike(pat, escape="\\"),
+                    merchant_tags_text.ilike(pat, escape="\\"),
+                )
+            )
 
     if conditions:
         stmt = stmt.where(and_(*conditions))
@@ -410,6 +453,7 @@ async def _list_payments_page(
     amount_min: Optional[Decimal] = None,
     amount_max: Optional[Decimal] = None,
     tagged_only: Optional[bool] = None,
+    search_q: Optional[str] = None,
     limit: int = 50,
     after_date: Optional[date] = None,
     after_payment_id: Optional[UUID] = None,
@@ -427,6 +471,7 @@ async def _list_payments_page(
         amount_min,
         amount_max,
         tagged_only,
+        search_q=search_q,
         limit=limit,
         after_date=after_date,
         after_payment_id=after_payment_id,
@@ -472,6 +517,7 @@ async def list_payments(
     amount_min: Optional[Decimal] = None,
     amount_max: Optional[Decimal] = None,
     tagged_only: bool = False,
+    q: Optional[str] = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     after_date: Optional[date] = None,
     after_payment_id: Optional[UUID] = None,
@@ -491,6 +537,7 @@ async def list_payments(
         amount_min=amount_min,
         amount_max=amount_max,
         tagged_only=tagged_only or None,
+        search_q=q,
         limit=limit,
         after_date=after_date,
         after_payment_id=after_payment_id,
