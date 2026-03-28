@@ -74,7 +74,11 @@ export function AppLayout({ auth }: { auth: AuthContext }) {
           className="shrink-0 bg-white border-b border-gray-200 px-4 sm:px-6 flex items-center justify-between gap-4 relative z-50"
           style={{ height: '60px' }}
         >
-          <Link to="/" className="text-xl font-bold text-gray-900 tracking-tight hover:text-gray-700">
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-xl font-bold text-gray-900 tracking-tight hover:text-gray-700"
+          >
+            <img src="/favicon.png" alt="" className="h-8 w-8 shrink-0 object-contain" aria-hidden />
             Caspi
           </Link>
           <div className="flex items-center gap-2">
