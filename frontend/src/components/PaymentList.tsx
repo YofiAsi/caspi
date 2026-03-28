@@ -1,25 +1,74 @@
-import { useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo, useRef } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
-import type { Payment, PaymentFilters } from '../types'
+import type { Payment, PaymentFilters, PaymentListCursor } from '../types'
 import { PaymentCard } from './PaymentCard'
+
+const PAGE_SIZE = 50
 
 interface Props {
   filters: PaymentFilters
+  scrollRoot: HTMLDivElement | null
   selectedPaymentIds: Set<string>
   onSelectionChange: (payments: Payment[]) => void
 }
 
-export function PaymentList({ filters, selectedPaymentIds, onSelectionChange }: Props) {
-  const { data: payments, isLoading, isError } = useQuery({
-    queryKey: ['payments', filters],
-    queryFn: () => api.payments.list(filters),
+export function PaymentList({
+  filters,
+  scrollRoot,
+  selectedPaymentIds,
+  onSelectionChange,
+}: Props) {
+  const {
+    data,
+    isPending,
+    isError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['payments', 'infinite', filters],
+    queryFn: ({ pageParam }) =>
+      api.payments.listPage(filters, {
+        limit: PAGE_SIZE,
+        cursor: pageParam ?? undefined,
+      }),
+    initialPageParam: null as PaymentListCursor | null,
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
   })
 
+  const payments = useMemo(
+    () => data?.pages.flatMap((p) => p.items) ?? [],
+    [data],
+  )
+
   const lastClickedId = useRef<string | null>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const root = scrollRoot
+    const target = sentinelRef.current
+    if (!root || !target) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (
+          entry?.isIntersecting &&
+          hasNextPage &&
+          !isFetchingNextPage
+        ) {
+          void fetchNextPage()
+        }
+      },
+      { root, rootMargin: '120px', threshold: 0 },
+    )
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [scrollRoot, hasNextPage, isFetchingNextPage, fetchNextPage, payments.length])
 
   const handleCardClick = (payment: Payment, event: React.MouseEvent) => {
-    if (!payments) return
+    if (!payments.length) return
 
     const isCtrl = event.ctrlKey || event.metaKey
     const isShift = event.shiftKey
@@ -55,7 +104,7 @@ export function PaymentList({ filters, selectedPaymentIds, onSelectionChange }: 
     }
   }
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex justify-center py-16">
         <div className="h-6 w-6 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin" />
@@ -71,7 +120,7 @@ export function PaymentList({ filters, selectedPaymentIds, onSelectionChange }: 
     )
   }
 
-  if (!payments || payments.length === 0) {
+  if (payments.length === 0) {
     return (
       <div className="py-16 text-center">
         <p className="text-gray-400 text-sm">No payments here yet.</p>
@@ -89,6 +138,12 @@ export function PaymentList({ filters, selectedPaymentIds, onSelectionChange }: 
           isSelected={selectedPaymentIds.has(payment.payment_id)}
         />
       ))}
+      <div ref={sentinelRef} className="h-1 w-full" aria-hidden />
+      {isFetchingNextPage ? (
+        <div className="flex justify-center py-6">
+          <div className="h-5 w-5 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin" />
+        </div>
+      ) : null}
     </div>
   )
 }

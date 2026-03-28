@@ -2,11 +2,41 @@ import type {
   PatchPaymentBody,
   Payment,
   PaymentFilters,
+  PaymentListCursor,
+  PaymentListPage,
   PaymentSummary,
   ScrapeResult,
 } from '../types'
 
 const BASE = '/api'
+
+function appendPaymentFilters(params: URLSearchParams, filters?: PaymentFilters): void {
+  if (filters?.includeTags) {
+    for (const tag of filters.includeTags) {
+      params.append('include_tags', tag)
+    }
+  }
+  if (filters?.excludeTags) {
+    for (const tag of filters.excludeTags) {
+      params.append('exclude_tags', tag)
+    }
+  }
+  if (filters?.dateFrom) {
+    params.set('date_from', filters.dateFrom)
+  }
+  if (filters?.dateTo) {
+    params.set('date_to', filters.dateTo)
+  }
+  if (filters?.amountMin !== undefined) {
+    params.set('amount_min', String(filters.amountMin))
+  }
+  if (filters?.amountMax !== undefined) {
+    params.set('amount_max', String(filters.amountMax))
+  }
+  if (filters?.taggedOnly) {
+    params.set('tagged_only', 'true')
+  }
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -31,75 +61,23 @@ export const api = {
       request(`/scrape/isracard?start_date=${startDate}`, { method: 'POST' }),
   },
   payments: {
-    list: (filters?: PaymentFilters): Promise<Payment[]> => {
+    listPage: (
+      filters: PaymentFilters | undefined,
+      options: { limit?: number; cursor?: PaymentListCursor | null },
+    ): Promise<PaymentListPage> => {
       const params = new URLSearchParams()
-
-      if (filters?.includeTags) {
-        for (const tag of filters.includeTags) {
-          params.append('include_tags', tag)
-        }
+      appendPaymentFilters(params, filters)
+      params.set('limit', String(options.limit ?? 50))
+      if (options.cursor) {
+        params.set('after_date', options.cursor.date)
+        params.set('after_payment_id', options.cursor.payment_id)
       }
-
-      if (filters?.excludeTags) {
-        for (const tag of filters.excludeTags) {
-          params.append('exclude_tags', tag)
-        }
-      }
-
-      if (filters?.dateFrom) {
-        params.set('date_from', filters.dateFrom)
-      }
-      if (filters?.dateTo) {
-        params.set('date_to', filters.dateTo)
-      }
-
-      if (filters?.amountMin !== undefined) {
-        params.set('amount_min', String(filters.amountMin))
-      }
-      if (filters?.amountMax !== undefined) {
-        params.set('amount_max', String(filters.amountMax))
-      }
-
-      if (filters?.taggedOnly) {
-        params.set('tagged_only', 'true')
-      }
-
       const query = params.toString()
       return request(`/payments${query ? `?${query}` : ''}`)
     },
     summary: (filters?: PaymentFilters): Promise<PaymentSummary> => {
       const params = new URLSearchParams()
-
-      if (filters?.includeTags) {
-        for (const tag of filters.includeTags) {
-          params.append('include_tags', tag)
-        }
-      }
-
-      if (filters?.excludeTags) {
-        for (const tag of filters.excludeTags) {
-          params.append('exclude_tags', tag)
-        }
-      }
-
-      if (filters?.dateFrom) {
-        params.set('date_from', filters.dateFrom)
-      }
-      if (filters?.dateTo) {
-        params.set('date_to', filters.dateTo)
-      }
-
-      if (filters?.amountMin !== undefined) {
-        params.set('amount_min', String(filters.amountMin))
-      }
-      if (filters?.amountMax !== undefined) {
-        params.set('amount_max', String(filters.amountMax))
-      }
-
-      if (filters?.taggedOnly) {
-        params.set('tagged_only', 'true')
-      }
-
+      appendPaymentFilters(params, filters)
       const query = params.toString()
       return request(`/payments/summary${query ? `?${query}` : ''}`)
     },

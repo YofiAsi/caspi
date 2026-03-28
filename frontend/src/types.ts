@@ -60,6 +60,16 @@ export interface PaymentFilters {
   taggedOnly?: boolean
 }
 
+export interface PaymentListCursor {
+  date: string
+  payment_id: string
+}
+
+export interface PaymentListPage {
+  items: Payment[]
+  next_cursor: PaymentListCursor | null
+}
+
 export interface CurrencyTotals {
   currency: string
   sum_effective: string
