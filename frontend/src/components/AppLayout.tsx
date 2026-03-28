@@ -23,7 +23,7 @@ export function AppLayout({ auth }: { auth: AuthContext }) {
       <div className="h-screen flex flex-col bg-gray-50">
         <header
           className="shrink-0 bg-white border-b border-gray-200 px-4 sm:px-6 flex items-center justify-between gap-4 relative z-50"
-          style={{ height: '73px' }}
+          style={{ height: '60px' }}
         >
           <Link to="/" className="text-xl font-bold text-gray-900 tracking-tight hover:text-gray-700">
             Caspi
@@ -64,12 +64,12 @@ export function AppLayout({ auth }: { auth: AuthContext }) {
           <>
             <button
               type="button"
-              className="fixed inset-x-0 top-[73px] bottom-0 z-40 bg-black/40"
+              className="fixed inset-x-0 top-[60px] bottom-0 z-40 bg-black/40"
               aria-label="Close options"
               onClick={() => setOptionsOpen(false)}
             />
             <div
-              className="fixed top-[73px] right-0 bottom-0 z-50 w-72 max-w-[85vw] bg-white border-l border-gray-200 shadow-xl flex flex-col"
+              className="fixed top-[60px] right-0 bottom-0 z-50 w-72 max-w-[85vw] bg-white border-l border-gray-200 shadow-xl flex flex-col"
               role="dialog"
               aria-modal="true"
               aria-labelledby="options-drawer-title"
