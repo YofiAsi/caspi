@@ -41,6 +41,16 @@ class PaymentResponse(BaseModel):
     extra: dict
 
 
+class PaymentListCursor(BaseModel):
+    date: date
+    payment_id: str
+
+
+class PaymentListPageResponse(BaseModel):
+    items: list[PaymentResponse]
+    next_cursor: Optional[PaymentListCursor] = None
+
+
 class PatchPaymentBody(BaseModel):
     tags: Optional[list[str]] = None
     payment_tags: Optional[list[str]] = None
@@ -290,6 +300,10 @@ async def _query_payments(
     amount_min: Optional[Decimal],
     amount_max: Optional[Decimal],
     tagged_only: Optional[bool] = None,
+    *,
+    limit: Optional[int] = None,
+    after_date: Optional[date] = None,
+    after_payment_id: Optional[UUID] = None,
 ):
     stmt = select(PaymentModel).outerjoin(
         MerchantTagModel,
@@ -342,7 +356,19 @@ async def _query_payments(
     if conditions:
         stmt = stmt.where(and_(*conditions))
 
-    result = await db.execute(stmt.order_by(PaymentModel.date.desc(), PaymentModel.payment_id))
+    if after_date is not None and after_payment_id is not None:
+        stmt = stmt.where(
+            or_(
+                PaymentModel.date < after_date,
+                and_(PaymentModel.date == after_date, PaymentModel.payment_id < after_payment_id),
+            )
+        )
+
+    stmt = stmt.order_by(PaymentModel.date.desc(), PaymentModel.payment_id.desc())
+    if limit is not None:
+        stmt = stmt.limit(limit)
+
+    result = await db.execute(stmt)
     return result.scalars().all()
 
 
@@ -374,6 +400,45 @@ async def _list_payment_responses(
     return [_to_response(_to_domain(m), aliases, merchant_tags_map) for m in models]
 
 
+async def _list_payments_page(
+    db: AsyncSession,
+    *,
+    include_tags: Optional[list[str]] = None,
+    exclude_tags: Optional[list[str]] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    amount_min: Optional[Decimal] = None,
+    amount_max: Optional[Decimal] = None,
+    tagged_only: Optional[bool] = None,
+    limit: int = 50,
+    after_date: Optional[date] = None,
+    after_payment_id: Optional[UUID] = None,
+) -> PaymentListPageResponse:
+    from caspi.infrastructure.repositories.payment_repository import _to_domain
+
+    aliases = await _load_aliases(db)
+    merchant_tags_map = await _load_merchant_tags(db)
+    models = await _query_payments(
+        db,
+        include_tags,
+        exclude_tags,
+        date_from,
+        date_to,
+        amount_min,
+        amount_max,
+        tagged_only,
+        limit=limit,
+        after_date=after_date,
+        after_payment_id=after_payment_id,
+    )
+    items = [_to_response(_to_domain(m), aliases, merchant_tags_map) for m in models]
+    next_cursor: Optional[PaymentListCursor] = None
+    if len(items) == limit:
+        last = items[-1]
+        next_cursor = PaymentListCursor(date=last.date, payment_id=last.payment_id)
+    return PaymentListPageResponse(items=items, next_cursor=next_cursor)
+
+
 @router.get("/summary", response_model=PaymentSummaryResponse)
 async def payments_summary(
     include_tags: Optional[list[str]] = Query(default=None),
@@ -398,7 +463,7 @@ async def payments_summary(
     return _aggregate_payment_summary(responses)
 
 
-@router.get("", response_model=list[PaymentResponse])
+@router.get("", response_model=PaymentListPageResponse)
 async def list_payments(
     include_tags: Optional[list[str]] = Query(default=None),
     exclude_tags: Optional[list[str]] = Query(default=None),
@@ -407,9 +472,17 @@ async def list_payments(
     amount_min: Optional[Decimal] = None,
     amount_max: Optional[Decimal] = None,
     tagged_only: bool = False,
+    limit: int = Query(default=50, ge=1, le=200),
+    after_date: Optional[date] = None,
+    after_payment_id: Optional[UUID] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    return await _list_payment_responses(
+    if (after_date is None) != (after_payment_id is None):
+        raise HTTPException(
+            status_code=422,
+            detail="after_date and after_payment_id must be supplied together",
+        )
+    return await _list_payments_page(
         db,
         include_tags=include_tags,
         exclude_tags=exclude_tags,
@@ -418,6 +491,9 @@ async def list_payments(
         amount_min=amount_min,
         amount_max=amount_max,
         tagged_only=tagged_only or None,
+        limit=limit,
+        after_date=after_date,
+        after_payment_id=after_payment_id,
     )
 
 
