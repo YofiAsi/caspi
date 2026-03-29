@@ -12,6 +12,14 @@ class Settings(BaseSettings):
     isracard_id: str
     isracard_card6_digits: str
     isracard_password: str
+    isracard_full_sync_max_months: int = 120
+    isracard_bulk_cooldown_min_seconds: int = 10
+    isracard_bulk_cooldown_initial_seconds: int = 45
+    isracard_bulk_cooldown_step_down_seconds: int = 8
+    isracard_bulk_cooldown_max_seconds: int = 180
+    isracard_bulk_cooldown_tick_seconds: int = 2
+    isracard_bulk_automation_retry_seconds: int = 120
+    isracard_bulk_cooldown_failure_bump_seconds: int = 25
 
     environment: str = "development"
     auth_force_enable: bool = False
