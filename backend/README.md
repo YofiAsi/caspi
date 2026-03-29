@@ -54,7 +54,7 @@ backend/
 | `PaymentSource` | `value_objects/enums.py` | Enum: `ISRACARD`, `BANK`, `BIT` |
 | `PaymentType` | `value_objects/enums.py` | Enum: `RECURRING`, `ONE_TIME`, `UNKNOWN` |
 | `DateRange` | `value_objects/date_range.py` | Immutable start/end date pair with `contains()` |
-| `*Id` types | `value_objects/ids.py` | Typed UUID wrappers: `PaymentId`, `CategoryId`, `ImportId`, `RuleId`, `ProjectId` |
+| `*Id` types | `value_objects/ids.py` | Typed UUID wrappers: `PaymentId`, `CategoryId`, `ImportId`, `RuleId` |
 
 ### Repository Interfaces
 
@@ -62,9 +62,8 @@ All repositories are abstract base classes defined in `domain/repositories/`. Im
 
 | Interface | Key methods |
 |---|---|
-| `PaymentRepository` | `save`, `find_by_id`, `find_by_date_range`, `find_by_category`, `find_by_import`, `find_by_project`, `find_by_tag`, `find_uncategorized` |
+| `PaymentRepository` | `save`, `find_by_id`, `find_by_date_range`, `find_by_category`, `find_by_import`, `find_by_tag`, `find_uncategorized`, `find_source_identifiers` |
 | `CategoryRepository` | `save`, `find_by_id`, `find_all` |
-| `ProjectRepository` | `save`, `find_by_id`, `find_all` |
 | `ImportBatchRepository` | `save`, `find_by_id`, `find_all` |
 | `MerchantRuleRepository` | `save`, `find_by_id`, `find_by_merchant_key`, `find_all`, `delete` |
 | `TagRepository` | `save`, `find_all` |

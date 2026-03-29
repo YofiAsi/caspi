@@ -4,7 +4,7 @@ from datetime import date
 
 from caspi.domain.entities.payment import Payment
 from caspi.domain.value_objects.enums import PaymentSource, PaymentType
-from caspi.domain.value_objects.ids import CategoryId, ImportId, PaymentId, ProjectId
+from caspi.domain.value_objects.ids import CategoryId, ImportId, PaymentId
 from caspi.domain.value_objects.money import Money
 from caspi.domain.value_objects.tag import Tag
 
@@ -31,13 +31,6 @@ def test_assign_category():
     cat_id = CategoryId()
     payment.assign_category(cat_id)
     assert payment.category_id == cat_id
-
-
-def test_assign_project():
-    payment = _make_payment()
-    proj_id = ProjectId()
-    payment.assign_project(proj_id)
-    assert payment.project_id == proj_id
 
 
 def test_add_tag():
