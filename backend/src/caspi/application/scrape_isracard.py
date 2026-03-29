@@ -15,6 +15,7 @@ class ScrapeIsracardRequest:
     card6_digits: str
     password: str
     start_date: date | None = None
+    end_date: date | None = None
 
 
 @dataclass
@@ -81,6 +82,8 @@ class ScrapeIsracardUseCase:
         }
         if request.start_date:
             body["startDate"] = request.start_date.isoformat()
+        if request.end_date:
+            body["endDate"] = request.end_date.isoformat()
 
         async with httpx.AsyncClient(timeout=120) as client:
             response = await client.post(

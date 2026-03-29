@@ -11,7 +11,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from caspi.application.bulk_scrape_isracard import BulkScrapeIsracardRequest, BulkScrapeIsracardUseCase
+from caspi.application.bulk_scrape_isracard import (
+    BulkScrapeIsracardRequest,
+    BulkScrapeIsracardUseCase,
+    count_bulk_sync_months,
+)
 from caspi.application.scrape_isracard import ScrapeIsracardRequest, ScrapeIsracardUseCase
 from caspi.domain.value_objects import ImportId
 from caspi.infrastructure.database import get_db
@@ -28,6 +32,10 @@ def _is_single_calendar_month_window(start: date, end: date) -> bool:
         return False
     _, last_day = calendar.monthrange(end.year, end.month)
     return end.day == last_day
+
+
+def _is_first_day_of_month(d: date) -> bool:
+    return d.day == 1
 
 
 class ScrapeIsracardResponse(BaseModel):
@@ -63,6 +71,7 @@ async def scrape_isracard(start_date: date | None = None, db: AsyncSession = Dep
                 card6_digits=settings.isracard_card6_digits,
                 password=settings.isracard_password,
                 start_date=start_date,
+                end_date=date.today(),
             )
         )
         await db.commit()
@@ -80,11 +89,34 @@ async def scrape_isracard(start_date: date | None = None, db: AsyncSession = Dep
 
 @router.post("/isracard/bulk")
 async def bulk_scrape_isracard(start_date: date, end_date: date | None = None):
-    if end_date is not None and not _is_single_calendar_month_window(start_date, end_date):
-        raise HTTPException(
-            status_code=422,
-            detail="start_date must be the first day of a month and end_date the last day of that month",
-        )
+    """Month sync: pass start_date (first of month) and end_date (last of same month).
+
+    Full range sync: pass start_date only (must be the first day of a month). Each calendar
+    month from that month through the current month is scraped (see BulkScrapeIsracardUseCase).
+    """
+    if end_date is not None:
+        if not _is_single_calendar_month_window(start_date, end_date):
+            raise HTTPException(
+                status_code=422,
+                detail="start_date must be the first day of a month and end_date the last day of that month",
+            )
+    else:
+        if not _is_first_day_of_month(start_date):
+            raise HTTPException(
+                status_code=422,
+                detail="full range sync requires start_date on the first day of a month",
+            )
+        max_months = settings.isracard_full_sync_max_months
+        if max_months > 0:
+            span = count_bulk_sync_months(start_date, None)
+            if span > max_months:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"range is {span} months; exceeds ISRACARD_FULL_SYNC_MAX_MONTHS ({max_months}). "
+                        "Use a later start_date or raise the limit."
+                    ),
+                )
     request = BulkScrapeIsracardRequest(
         id=settings.isracard_id,
         card6_digits=settings.isracard_card6_digits,
@@ -92,7 +124,16 @@ async def bulk_scrape_isracard(start_date: date, end_date: date | None = None):
         start_date=start_date,
         end_date=end_date,
     )
-    use_case = BulkScrapeIsracardUseCase(scraper_url=settings.scraper_url)
+    use_case = BulkScrapeIsracardUseCase(
+        scraper_url=settings.scraper_url,
+        cooldown_min_seconds=settings.isracard_bulk_cooldown_min_seconds,
+        cooldown_initial_seconds=settings.isracard_bulk_cooldown_initial_seconds,
+        cooldown_step_down_seconds=settings.isracard_bulk_cooldown_step_down_seconds,
+        cooldown_max_seconds=settings.isracard_bulk_cooldown_max_seconds,
+        cooldown_tick_seconds=settings.isracard_bulk_cooldown_tick_seconds,
+        automation_retry_seconds=settings.isracard_bulk_automation_retry_seconds,
+        cooldown_failure_bump_seconds=settings.isracard_bulk_cooldown_failure_bump_seconds,
+    )
 
     async def generate():
         async for event in use_case.execute_stream(request):
