@@ -23,11 +23,10 @@ def test_subtract():
     assert a - b == Money(Decimal("7.00"), "ILS")
 
 
-def test_subtract_below_zero_raises():
+def test_subtract_can_go_negative():
     a = Money(Decimal("3.00"), "ILS")
     b = Money(Decimal("10.00"), "ILS")
-    with pytest.raises(ValueError):
-        _ = a - b
+    assert a - b == Money(Decimal("-7.00"), "ILS")
 
 
 def test_multiply():
@@ -35,9 +34,9 @@ def test_multiply():
     assert a * 2 == Money(Decimal("20.00"), "ILS")
 
 
-def test_negative_amount_raises():
-    with pytest.raises(ValueError):
-        Money(Decimal("-1.00"), "ILS")
+def test_negative_amount_allowed_for_signed_transactions():
+    m = Money(Decimal("-1.00"), "ILS")
+    assert m.amount == Decimal("-1.00")
 
 
 def test_empty_currency_raises():

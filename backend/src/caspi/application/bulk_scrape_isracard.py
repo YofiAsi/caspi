@@ -5,9 +5,10 @@ from datetime import date
 from typing import AsyncGenerator
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from caspi.application.scrape_isracard import ScrapeIsracardRequest, ScrapeIsracardUseCase
-from caspi.infrastructure.database import async_session
+from caspi.infrastructure.database import async_session as default_session_factory
 from caspi.infrastructure.repositories import (
     SqlImportBatchRepository,
     SqlPaymentRepository,
@@ -62,6 +63,7 @@ class BulkScrapeIsracardUseCase:
         self,
         scraper_url: str,
         *,
+        session_factory: async_sessionmaker[AsyncSession] | None = None,
         cooldown_min_seconds: int = 10,
         cooldown_initial_seconds: int = 45,
         cooldown_step_down_seconds: int = 8,
@@ -71,6 +73,7 @@ class BulkScrapeIsracardUseCase:
         cooldown_failure_bump_seconds: int = 25,
     ):
         self._scraper_url = scraper_url
+        self._session_factory = session_factory or default_session_factory
         self._cooldown_min = max(0, cooldown_min_seconds)
         self._cooldown_initial = max(self._cooldown_min, cooldown_initial_seconds)
         self._cooldown_step_down = max(0, cooldown_step_down_seconds)
@@ -108,7 +111,7 @@ class BulkScrapeIsracardUseCase:
 
             for attempt in range(2):
                 try:
-                    async with async_session() as session:
+                    async with self._session_factory() as session:
                         use_case = ScrapeIsracardUseCase(
                             scraper_url=self._scraper_url,
                             payment_repo=SqlPaymentRepository(session),
