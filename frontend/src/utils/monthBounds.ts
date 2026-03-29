@@ -24,3 +24,17 @@ export function formatYearMonthLabel(ym: string, locale = 'en-US'): string {
     new Date(year, month - 1, 1),
   )
 }
+
+export function countMonthsFromYearMonthToNow(ym: string): number {
+  const { year, month } = parseYearMonth(ym)
+  const now = new Date()
+  const startIdx = year * 12 + (month - 1)
+  const endIdx = now.getFullYear() * 12 + now.getMonth()
+  return Math.max(1, endIdx - startIdx + 1)
+}
+
+export function yearMonthMonthsAgo(monthsBack: number): string {
+  const d = new Date()
+  d.setMonth(d.getMonth() - monthsBack)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
