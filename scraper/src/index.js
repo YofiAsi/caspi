@@ -25,8 +25,20 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
+function parseCalendarBodyDate(value) {
+  if (value == null || value === '') return undefined;
+  if (value instanceof Date) return value;
+  const s = String(value);
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (!m) return new Date(s);
+  const y = Number(m[1]);
+  const mon = Number(m[2]) - 1;
+  const day = Number(m[3]);
+  return new Date(Date.UTC(y, mon, day, 12, 0, 0, 0));
+}
+
 app.post('/scrape/isracard', async (req, res) => {
-  const { id, card6Digits, password, startDate } = req.body;
+  const { id, card6Digits, password, startDate, endDate } = req.body;
 
   if (!id || !card6Digits || !password) {
     return res.status(400).json({
@@ -36,12 +48,9 @@ app.post('/scrape/isracard', async (req, res) => {
   }
 
   const resolvedStartDate = startDate
-    ? new Date(startDate)
+    ? parseCalendarBodyDate(startDate)
     : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-
-  // #region agent log
-  console.log(JSON.stringify({ dbg: true, sessionId: '2aaa7c', runId: 'post-fix', hypothesisId: 'H-A', message: 'scrape started', data: { startDate: resolvedStartDate.toISOString(), stealthEnabled: true } }));
-  // #endregion
+  const resolvedEndDate = endDate ? parseCalendarBodyDate(endDate) : undefined;
 
   let browser;
   try {
@@ -50,10 +59,6 @@ app.post('/scrape/isracard', async (req, res) => {
       executablePath: CHROMIUM_PATH,
       args: BROWSER_ARGS,
     });
-
-    // #region agent log
-    console.log(JSON.stringify({ dbg: true, sessionId: '2aaa7c', hypothesisId: 'H-B', message: 'browser launched with stealth', data: { args: BROWSER_ARGS } }));
-    // #endregion
 
     browser.on('targetcreated', async (target) => {
       try {
@@ -69,6 +74,7 @@ app.post('/scrape/isracard', async (req, res) => {
     const scraper = createScraper({
       companyId: CompanyTypes.isracard,
       startDate: resolvedStartDate,
+      ...(resolvedEndDate ? { transactionMonthsEndDate: resolvedEndDate } : {}),
       combineInstallments: false,
       showBrowser: false,
       additionalTransactionInformation: true,
@@ -77,10 +83,6 @@ app.post('/scrape/isracard', async (req, res) => {
     });
 
     const result = await scraper.scrape({ id, card6Digits, password });
-
-    // #region agent log
-    console.log(JSON.stringify({ dbg: true, sessionId: '2aaa7c', runId: 'post-fix', hypothesisId: 'H-A', message: 'scrape result', data: { success: result.success, errorType: result.errorType || null, errorMessage: result.errorMessage || null } }));
-    // #endregion
 
     if (!result.success) {
       return res.status(422).json({
@@ -91,9 +93,6 @@ app.post('/scrape/isracard', async (req, res) => {
 
     return res.json({ accounts: result.accounts });
   } catch (err) {
-    // #region agent log
-    console.log(JSON.stringify({ dbg: true, sessionId: '2aaa7c', hypothesisId: 'H-A', message: 'scrape exception', data: { message: err.message } }));
-    // #endregion
     console.error('Scrape failed:', err.message);
     return res.status(500).json({
       error: 'SCRAPE_FAILED',
