@@ -45,17 +45,17 @@ export function MonthPickerField({ value, onChange, id }: Props) {
         <button
           type="button"
           id={id}
-          className="w-full flex items-center justify-between gap-2 border border-gray-200 rounded-lg px-3 py-2 text-sm text-left text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="w-full flex items-center justify-between gap-2 border border-border rounded-lg px-3 py-2 text-sm text-left text-fg bg-input-bg hover:bg-hover-surface focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <span>{formatYearMonthLabel(value)}</span>
-          <span className="text-gray-400 shrink-0" aria-hidden>
+          <span className="text-fg-subtle shrink-0" aria-hidden>
             ▾
           </span>
         </button>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
-          className="z-[100] w-[280px] rounded-xl border border-gray-200 bg-white p-3 shadow-lg outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          className="z-[100] w-[280px] rounded-xl border border-border bg-surface p-3 shadow-lg outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
           sideOffset={6}
           align="start"
           collisionPadding={16}
@@ -65,17 +65,17 @@ export function MonthPickerField({ value, onChange, id }: Props) {
               type="button"
               disabled={!canPrevYear}
               onClick={() => setViewYear((y) => y - 1)}
-              className="rounded-lg px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:pointer-events-none"
+              className="rounded-lg px-2 py-1 text-sm text-fg-muted hover:bg-hover-surface disabled:opacity-30 disabled:pointer-events-none"
               aria-label="Previous year"
             >
               ‹
             </button>
-            <span className="text-sm font-semibold text-gray-900 tabular-nums">{viewYear}</span>
+            <span className="text-sm font-semibold text-fg tabular-nums">{viewYear}</span>
             <button
               type="button"
               disabled={!canNextYear}
               onClick={() => setViewYear((y) => y + 1)}
-              className="rounded-lg px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:pointer-events-none"
+              className="rounded-lg px-2 py-1 text-sm text-fg-muted hover:bg-hover-surface disabled:opacity-30 disabled:pointer-events-none"
               aria-label="Next year"
             >
               ›
@@ -94,10 +94,10 @@ export function MonthPickerField({ value, onChange, id }: Props) {
                   onClick={() => selectMonth(m)}
                   className={`rounded-lg py-2 text-xs font-medium transition-colors ${
                     selected
-                      ? 'bg-indigo-600 text-white'
+                      ? 'bg-accent text-on-primary'
                       : disabled
-                        ? 'text-gray-300 cursor-not-allowed'
-                        : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-700'
+                        ? 'text-disabled-fg cursor-not-allowed'
+                        : 'text-fg-secondary hover:bg-accent-soft hover:text-accent-soft-fg'
                   }`}
                 >
                   {label}

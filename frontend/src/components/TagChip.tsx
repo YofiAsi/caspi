@@ -1,3 +1,4 @@
+import { useTheme } from 'next-themes'
 import { getTagChipStyle } from '../lib/tagColors'
 
 type Props = {
@@ -8,11 +9,18 @@ type Props = {
   removeAriaLabel?: string
 }
 
+function resolvedVariant(resolvedTheme: string | undefined): TagColorVariant {
+  return resolvedTheme === 'dark' ? 'dark' : 'light'
+}
+
 export function TagChip({ tag, className = '', onRemove, disabled, removeAriaLabel }: Props) {
+  const { resolvedTheme } = useTheme()
+  const variant = resolvedVariant(resolvedTheme)
+
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full font-medium ${className}`}
-      style={getTagChipStyle(tag)}
+      style={getTagChipStyle(tag, variant)}
     >
       {tag}
       {onRemove && (

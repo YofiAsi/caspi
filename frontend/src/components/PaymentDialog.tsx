@@ -19,12 +19,12 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1 ${
-        checked ? 'bg-indigo-600' : 'bg-gray-200'
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-surface ${
+        checked ? 'bg-accent' : 'bg-toggle-off'
       }`}
     >
       <span
-        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-on-primary transition-transform ${
           checked ? 'translate-x-4' : 'translate-x-0.5'
         }`}
       />
@@ -124,15 +124,15 @@ export function PaymentDialog({ payment, onClose }: Props) {
   return (
     <Dialog.Root open={payment !== null} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 z-40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl p-6 focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 mx-4">
+        <Dialog.Overlay className="fixed inset-0 bg-scrim z-40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <Dialog.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg max-h-[90vh] overflow-y-auto bg-surface rounded-2xl shadow-2xl p-6 focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 mx-4">
           {payment && (
             <>
               <div className="mb-5">
-                <Dialog.Title className="text-lg font-semibold text-gray-900 leading-tight">
+                <Dialog.Title className="text-lg font-semibold text-fg leading-tight">
                   {payment.display_name}
                 </Dialog.Title>
-                <p className="text-sm text-gray-500 mt-0.5">
+                <p className="text-sm text-fg-muted mt-0.5">
                   {formatDate(payment.date)} ·{' '}
                   {payment.effective_amount.toLocaleString('en-IL', {
                     style: 'currency',
@@ -144,23 +144,23 @@ export function PaymentDialog({ payment, onClose }: Props) {
               <div className="space-y-5">
                 {payment.merchant && (
                   <section>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Display name</label>
+                    <label className="block text-sm font-medium text-fg-secondary mb-1.5">Display name</label>
                     <input
                       type="text"
                       value={merchantAlias}
                       onChange={(e) => setMerchantAlias(e.target.value)}
                       placeholder={payment.merchant}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-input-bg text-fg focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                     {merchantAlias.trim() && (
-                      <p className="text-xs text-gray-400 mt-1">Original: {payment.merchant}</p>
+                      <p className="text-xs text-fg-subtle mt-1">Original: {payment.merchant}</p>
                     )}
                   </section>
                 )}
 
                 <section>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Tags</label>
-                  <p className="text-xs text-gray-500 mb-1">All like this (future imports too)</p>
+                  <label className="block text-sm font-medium text-fg-secondary mb-1.5">Tags</label>
+                  <p className="text-xs text-fg-muted mb-1">All like this (future imports too)</p>
                   <div className="flex flex-wrap gap-1.5 mb-3">
                     {merchantTags.map((tag) => (
                       <TagChip
@@ -171,10 +171,10 @@ export function PaymentDialog({ payment, onClose }: Props) {
                       />
                     ))}
                     {merchantTags.length === 0 && (
-                      <span className="text-xs text-gray-400">None</span>
+                      <span className="text-xs text-fg-subtle">None</span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mb-1">This payment only</p>
+                  <p className="text-xs text-fg-muted mb-1">This payment only</p>
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {paymentTags.map((tag) => (
                       <TagChip
@@ -185,15 +185,15 @@ export function PaymentDialog({ payment, onClose }: Props) {
                       />
                     ))}
                     {paymentTags.length === 0 && (
-                      <span className="text-xs text-gray-400">None</span>
+                      <span className="text-xs text-fg-subtle">None</span>
                     )}
                   </div>
-                  <label className="flex items-center gap-2 text-xs text-gray-600 mb-2 cursor-pointer select-none">
+                  <label className="flex items-center gap-2 text-xs text-fg-muted mb-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={tagScopeAllSimilar}
                       onChange={(e) => setTagScopeAllSimilar(e.target.checked)}
-                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-400"
+                      className="rounded border-checkbox-border text-accent focus:ring-ring"
                     />
                     New tags apply to all like this (including future)
                   </label>
@@ -204,12 +204,12 @@ export function PaymentDialog({ payment, onClose }: Props) {
                       onChange={(e) => setTagInput(e.target.value)}
                       onKeyDown={handleTagKeyDown}
                       placeholder="Add a tag…"
-                      className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="flex-1 text-sm border border-border rounded-lg px-3 py-2 bg-input-bg text-fg focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                     <button
                       type="button"
                       onClick={addTag}
-                      className="px-3 py-2 text-sm bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 font-medium"
+                      className="px-3 py-2 text-sm bg-accent-soft text-accent-soft-fg rounded-lg hover:bg-accent-soft-hover font-medium"
                     >
                       Add
                     </button>
@@ -218,20 +218,20 @@ export function PaymentDialog({ payment, onClose }: Props) {
 
                 <section>
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-gray-700">Recurring payment</label>
+                    <label className="text-sm font-medium text-fg-secondary">Recurring payment</label>
                     <Toggle checked={isRecurring} onChange={setIsRecurring} />
                   </div>
                 </section>
 
                 <section>
                   <div className="flex items-center justify-between mb-3">
-                    <label className="text-sm font-medium text-gray-700">Sharing</label>
+                    <label className="text-sm font-medium text-fg-secondary">Sharing</label>
                     <Toggle checked={sharingEnabled} onChange={setSharingEnabled} />
                   </div>
                   {sharingEnabled && (
                     <div className="flex gap-2">
                       <div className="flex-1">
-                        <label className="text-xs text-gray-500 mb-1 block">My share</label>
+                        <label className="text-xs text-fg-muted mb-1 block">My share</label>
                         <input
                           type="number"
                           value={shareValue}
@@ -240,15 +240,15 @@ export function PaymentDialog({ payment, onClose }: Props) {
                           min="0"
                           step={shareType === 'percentage' ? '1' : '0.01'}
                           max={shareType === 'percentage' ? '100' : undefined}
-                          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                          className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-input-bg text-fg focus:outline-none focus:ring-2 focus:ring-ring"
                         />
                       </div>
                       <div className="w-32">
-                        <label className="text-xs text-gray-500 mb-1 block">Type</label>
+                        <label className="text-xs text-fg-muted mb-1 block">Type</label>
                         <select
                           value={shareType}
                           onChange={(e) => setShareType(e.target.value as ShareType)}
-                          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                          className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-input-bg text-fg focus:outline-none focus:ring-2 focus:ring-ring"
                         >
                           <option value="fixed">Fixed amount</option>
                           <option value="percentage">Percentage</option>
@@ -257,7 +257,7 @@ export function PaymentDialog({ payment, onClose }: Props) {
                     </div>
                   )}
                   {sharingEnabled && shareType === 'percentage' && shareValue && payment && (
-                    <p className="text-xs text-gray-400 mt-1.5">
+                    <p className="text-xs text-fg-subtle mt-1.5">
                       ={' '}
                       {((payment.amount * parseFloat(shareValue)) / 100).toLocaleString('en-IL', {
                         style: 'currency',
@@ -270,21 +270,21 @@ export function PaymentDialog({ payment, onClose }: Props) {
 
               <div className="flex gap-3 mt-6">
                 <Dialog.Close asChild>
-                  <button className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
+                  <button className="flex-1 px-4 py-2.5 text-sm font-medium text-fg-muted bg-muted-hover rounded-xl hover:bg-active-surface transition-colors">
                     Cancel
                   </button>
                 </Dialog.Close>
                 <button
                   onClick={handleSave}
                   disabled={mutation.isPending}
-                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-on-primary bg-accent rounded-xl hover:bg-accent-hover disabled:opacity-50 transition-colors"
                 >
                   {mutation.isPending ? 'Saving…' : 'Save'}
                 </button>
               </div>
 
               {mutation.isError && (
-                <p className="mt-3 text-sm text-red-600 text-center">
+                <p className="mt-3 text-sm text-danger-text text-center">
                   Failed to save. Please try again.
                 </p>
               )}

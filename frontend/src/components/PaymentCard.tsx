@@ -27,18 +27,18 @@ export function PaymentCard({ payment, onClick, isSelected }: Props) {
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => e.key === 'Enter' && onClick(e as unknown as React.MouseEvent)}
-      className={`w-full text-left px-4 py-3.5 transition-colors cursor-pointer border-b border-gray-100 last:border-0 ${
-        isSelected ? 'bg-indigo-50' : 'hover:bg-gray-50 active:bg-gray-100'
+      className={`w-full text-left px-4 py-3.5 transition-colors cursor-pointer border-b border-border-subtle last:border-0 ${
+        isSelected ? 'bg-accent-soft' : 'hover:bg-hover-surface active:bg-active-surface'
       }`}
     >
       <div className="flex items-center gap-3">
         <div className="shrink-0 text-center w-10">
-          <p className="text-xs text-gray-400 leading-tight">{formattedDate.split(' ')[1]}</p>
-          <p className="text-sm font-semibold text-gray-700 leading-tight">{formattedDate.split(' ')[0]}</p>
+          <p className="text-xs text-fg-subtle leading-tight">{formattedDate.split(' ')[1]}</p>
+          <p className="text-sm font-semibold text-fg-secondary leading-tight">{formattedDate.split(' ')[0]}</p>
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate">
+          <p className="text-sm font-medium text-fg truncate">
             {payment.display_name}
           </p>
           {payment.tags.length > 0 && (
@@ -51,17 +51,17 @@ export function PaymentCard({ payment, onClick, isSelected }: Props) {
         </div>
 
         <div className="shrink-0 text-right">
-          <p className="text-sm font-semibold text-gray-900">{amount}</p>
+          <p className="text-sm font-semibold text-fg">{amount}</p>
           {showOriginal && (
-            <p className="text-[10px] text-gray-400 truncate">
+            <p className="text-[10px] text-fg-subtle truncate">
               {formatCurrency(extra.original_amount!, extra.original_currency!)}
             </p>
           )}
           {isShared && (
-            <p className="text-xs text-emerald-600 font-medium">shared</p>
+            <p className="text-xs text-emerald-link font-medium">shared</p>
           )}
           {payment.payment_type === 'recurring' && (
-            <p className="text-xs text-blue-500 font-medium">recurring</p>
+            <p className="text-xs text-info font-medium">recurring</p>
           )}
         </div>
       </div>
