@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "express": "^5.0.1",
-    "israeli-bank-scrapers": "file:./fork",
+    "israeli-bank-scrapers": "file:./vendor/israeli-bank-scrapers",
     "puppeteer-core": "^22.15.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
