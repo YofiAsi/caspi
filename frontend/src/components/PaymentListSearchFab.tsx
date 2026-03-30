@@ -38,9 +38,9 @@ export function PaymentListSearchFab({ searchQ, onSearchQChange }: Props) {
       {open ? (
         <div
           id={panelId}
-          className="w-[min(100vw-3rem,18rem)] rounded-xl border border-gray-200 bg-white p-3 shadow-lg transition-opacity duration-200"
+          className="w-[min(100vw-3rem,18rem)] rounded-xl border border-border bg-surface p-3 shadow-lg transition-opacity duration-200"
         >
-          <label htmlFor="payment-list-search-q" className="block text-xs font-medium text-gray-600 mb-1.5">
+          <label htmlFor="payment-list-search-q" className="block text-xs font-medium text-fg-muted mb-1.5">
             Filter by name or tags
           </label>
           <div className="flex gap-2">
@@ -51,13 +51,13 @@ export function PaymentListSearchFab({ searchQ, onSearchQChange }: Props) {
               onChange={(e) => setInput(e.target.value)}
               placeholder="Search…"
               autoComplete="off"
-              className="flex-1 min-w-0 text-sm border border-gray-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="flex-1 min-w-0 text-sm border border-border rounded-lg px-2.5 py-2 bg-input-bg text-fg focus:outline-none focus:ring-2 focus:ring-ring"
             />
             {input.trim() ? (
               <button
                 type="button"
                 onClick={clear}
-                className="shrink-0 text-xs font-medium text-gray-500 hover:text-gray-800 px-2 py-2"
+                className="shrink-0 text-xs font-medium text-fg-muted hover:text-fg px-2 py-2"
               >
                 Clear
               </button>
@@ -70,7 +70,7 @@ export function PaymentListSearchFab({ searchQ, onSearchQChange }: Props) {
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         onClick={() => setOpen((v) => !v)}
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 transition-colors"
+        className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-on-primary shadow-lg hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-canvas transition-colors"
         title={open ? 'Close search' : 'Search and filter list'}
       >
         <svg

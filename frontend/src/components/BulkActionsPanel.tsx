@@ -75,19 +75,19 @@ function BulkTagDialog({ payments, onClose, onSaved }: DialogProps) {
       aria-modal="true"
     >
       <div
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-scrim"
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative z-10 w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+      <div className="relative z-10 w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <p className="text-xs font-semibold text-fg-muted uppercase tracking-wide">
             Add payment-only tags to {payments.length} payments
           </p>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+            className="text-fg-subtle hover:text-fg-muted text-lg leading-none"
             aria-label="Close"
           >
             ×
@@ -104,13 +104,13 @@ function BulkTagDialog({ payments, onClose, onSaved }: DialogProps) {
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Type a tag and press Enter"
-                className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="flex-1 text-sm border border-border rounded-lg px-3 py-1.5 bg-input-bg text-fg focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <button
                 type="button"
                 onClick={addTag}
                 disabled={!tagInput.trim()}
-                className="text-sm px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 font-medium hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="text-sm px-3 py-1.5 rounded-lg bg-accent-soft text-accent font-medium hover:bg-accent-soft-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 Add
               </button>
@@ -131,14 +131,14 @@ function BulkTagDialog({ payments, onClose, onSaved }: DialogProps) {
           </div>
 
           {mutation.isError && (
-            <p className="text-xs text-red-500">Something went wrong. Please try again.</p>
+            <p className="text-xs text-danger-text">Something went wrong. Please try again.</p>
           )}
 
           <div className="flex gap-2 justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="text-sm px-4 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              className="text-sm px-4 py-1.5 rounded-lg border border-border text-fg-muted hover:bg-hover-surface transition-colors"
             >
               Cancel
             </button>
@@ -146,7 +146,7 @@ function BulkTagDialog({ payments, onClose, onSaved }: DialogProps) {
               type="button"
               onClick={handleSave}
               disabled={tags.length === 0 || mutation.isPending}
-              className="text-sm px-4 py-1.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="text-sm px-4 py-1.5 rounded-lg bg-accent text-on-primary font-medium hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {mutation.isPending ? 'Saving…' : 'Save'}
             </button>
@@ -168,17 +168,17 @@ export function BulkActionsPanel({ payments, onClearSelection }: Props) {
   return (
     <>
       <div
-        className="fixed right-4 top-[77px] bottom-4 w-80 z-40 bg-white rounded-2xl shadow-xl border border-gray-200 flex flex-col"
+        className="fixed right-4 top-[77px] bottom-4 w-80 z-40 bg-surface rounded-2xl shadow-xl border border-border flex flex-col"
         role="complementary"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 shrink-0">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+          <p className="text-xs font-semibold text-fg-muted uppercase tracking-wide">
             {payments.length} selected
           </p>
           <button
             type="button"
             onClick={onClearSelection}
-            className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+            className="text-fg-subtle hover:text-fg-muted text-lg leading-none"
             aria-label="Clear selection"
           >
             ×
@@ -186,13 +186,13 @@ export function BulkActionsPanel({ payments, onClearSelection }: Props) {
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6">
-          <p className="text-sm text-gray-500 text-center">
+          <p className="text-sm text-fg-muted text-center">
             {payments.length} payments selected
           </p>
           <button
             type="button"
             onClick={() => setShowDialog(true)}
-            className="w-full text-sm px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
+            className="w-full text-sm px-4 py-2 rounded-lg bg-accent text-on-primary font-medium hover:bg-accent-hover transition-colors"
           >
             Add tags
           </button>

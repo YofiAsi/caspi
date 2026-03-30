@@ -72,7 +72,7 @@ export function AuthGate({ children }: { children: (ctx: AuthContext) => ReactNo
 
   if (state.phase === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-600 text-sm">
+      <div className="min-h-screen flex items-center justify-center bg-canvas text-fg-muted text-sm">
         Loading…
       </div>
     )
@@ -80,12 +80,12 @@ export function AuthGate({ children }: { children: (ctx: AuthContext) => ReactNo
 
   if (state.phase === 'error') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-gray-50 px-4">
-        <p className="text-sm text-gray-700">Could not verify access (HTTP {state.status}).</p>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-canvas px-4">
+        <p className="text-sm text-fg-secondary">Could not verify access (HTTP {state.status}).</p>
         <button
           type="button"
           onClick={() => void refresh()}
-          className="text-sm text-indigo-600 hover:text-indigo-800"
+          className="text-sm text-accent hover:text-accent-hover"
         >
           Retry
         </button>
@@ -95,14 +95,14 @@ export function AuthGate({ children }: { children: (ctx: AuthContext) => ReactNo
 
   if (state.phase === 'login') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50 px-4">
-        <h1 className="text-xl font-bold text-gray-900 tracking-tight">Caspi</h1>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-canvas px-4">
+        <h1 className="text-xl font-bold text-fg tracking-tight">Caspi</h1>
         {state.banner ? (
-          <p className="text-sm text-red-600 text-center max-w-sm">{state.banner}</p>
+          <p className="text-sm text-danger-text text-center max-w-sm">{state.banner}</p>
         ) : null}
         <a
           href="/api/auth/google"
-          className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50"
+          className="inline-flex items-center justify-center rounded-lg border border-checkbox-border bg-surface px-4 py-2 text-sm font-medium text-fg-secondary shadow-sm hover:bg-hover-surface"
         >
           Continue with Google
         </a>

@@ -107,14 +107,14 @@ export function PaymentList({
   if (isPending) {
     return (
       <div className="flex justify-center py-16">
-        <div className="h-6 w-6 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin" />
+        <div className="h-6 w-6 rounded-full border-2 border-ring border-t-transparent animate-spin" />
       </div>
     )
   }
 
   if (isError) {
     return (
-      <div className="py-16 text-center text-sm text-red-500">
+      <div className="py-16 text-center text-sm text-danger-text">
         Failed to load payments.
       </div>
     )
@@ -123,13 +123,13 @@ export function PaymentList({
   if (payments.length === 0) {
     return (
       <div className="py-16 text-center">
-        <p className="text-gray-400 text-sm">No payments here yet.</p>
+        <p className="text-fg-subtle text-sm">No payments here yet.</p>
       </div>
     )
   }
 
   return (
-    <div className="divide-y divide-gray-100">
+    <div className="divide-y divide-border-subtle">
       {payments.map((payment) => (
         <PaymentCard
           key={payment.payment_id}
@@ -141,7 +141,7 @@ export function PaymentList({
       <div ref={sentinelRef} className="h-1 w-full" aria-hidden />
       {isFetchingNextPage ? (
         <div className="flex justify-center py-6">
-          <div className="h-5 w-5 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin" />
+          <div className="h-5 w-5 rounded-full border-2 border-ring border-t-transparent animate-spin" />
         </div>
       ) : null}
     </div>

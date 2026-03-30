@@ -231,13 +231,13 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
   const rangeMonthCount = countMonthsFromYearMonthToNow(rangeFromMonth)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">Sync Transactions</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4">
+      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-md flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border-subtle">
+          <h2 className="text-base font-semibold text-fg">Sync Transactions</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
+            className="text-fg-subtle hover:text-fg-muted transition-colors p-1 rounded-lg hover:bg-hover-surface"
             aria-label="Close"
           >
             ✕
@@ -247,14 +247,14 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
         <div className="px-5 py-4 flex flex-col gap-4">
           {phase === 'idle' && (
             <>
-              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs sm:text-sm">
+              <div className="flex rounded-lg border border-border overflow-hidden text-xs sm:text-sm">
                 <button
                   type="button"
                   onClick={() => setMode('quick')}
                   className={`flex-1 py-2 font-medium transition-colors ${
                     mode === 'quick'
-                      ? 'bg-indigo-50 text-indigo-700'
-                      : 'text-gray-500 hover:bg-gray-50'
+                      ? 'bg-accent-soft text-accent-soft-fg'
+                      : 'text-fg-muted hover:bg-hover-surface'
                   }`}
                 >
                   Quick
@@ -262,10 +262,10 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
                 <button
                   type="button"
                   onClick={() => setMode('month')}
-                  className={`flex-1 py-2 font-medium transition-colors border-l border-gray-200 ${
+                  className={`flex-1 py-2 font-medium transition-colors border-l border-border ${
                     mode === 'month'
-                      ? 'bg-indigo-50 text-indigo-700'
-                      : 'text-gray-500 hover:bg-gray-50'
+                      ? 'bg-accent-soft text-accent-soft-fg'
+                      : 'text-fg-muted hover:bg-hover-surface'
                   }`}
                 >
                   Month
@@ -273,10 +273,10 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
                 <button
                   type="button"
                   onClick={() => setMode('range')}
-                  className={`flex-1 py-2 font-medium transition-colors border-l border-gray-200 ${
+                  className={`flex-1 py-2 font-medium transition-colors border-l border-border ${
                     mode === 'range'
-                      ? 'bg-indigo-50 text-indigo-700'
-                      : 'text-gray-500 hover:bg-gray-50'
+                      ? 'bg-accent-soft text-accent-soft-fg'
+                      : 'text-fg-muted hover:bg-hover-surface'
                   }`}
                 >
                   Full
@@ -284,15 +284,15 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
               </div>
 
               {mode === 'quick' ? (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-fg-muted">
                   Fetches transactions from the last 7 days. Use this for your daily sync.
                 </p>
               ) : mode === 'month' ? (
                 <div className="flex flex-col gap-2">
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-fg-muted">
                     Imports transactions for one calendar month. Pick the month below, then start sync.
                   </p>
-                  <label className="text-xs font-medium text-gray-600" htmlFor="sync-month-field">
+                  <label className="text-xs font-medium text-fg-muted" htmlFor="sync-month-field">
                     Month
                   </label>
                   <MonthPickerField
@@ -303,15 +303,15 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-fg-muted">
                     Imports every calendar month from the month you choose through the current month.
                     Existing transactions are skipped when they match a prior import.
                   </p>
-                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                  <p className="text-xs text-warning-fg bg-warning-bg border border-warning-border rounded-lg px-3 py-2">
                     Pauses between months start short and shrink after successful imports; they grow again
                     if the bank rate-limits or a month fails. Retry later if you see blocks.
                   </p>
-                  <label className="text-xs font-medium text-gray-600" htmlFor="range-from-month-field">
+                  <label className="text-xs font-medium text-fg-muted" htmlFor="range-from-month-field">
                     From month
                   </label>
                   <MonthPickerField
@@ -319,7 +319,7 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
                     value={rangeFromMonth}
                     onChange={setRangeFromMonth}
                   />
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-fg-muted">
                     {rangeMonthCount} month{rangeMonthCount === 1 ? '' : 's'} will be scraped
                     {rangeMonthCount > 12 ? ' (confirmation required)' : ''}.
                   </p>
@@ -329,7 +329,7 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
               <button
                 type="button"
                 onClick={handleStart}
-                className="mt-1 w-full py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+                className="mt-1 w-full py-2.5 rounded-xl bg-accent text-on-primary text-sm font-medium hover:bg-accent-hover transition-colors"
               >
                 {mode === 'quick'
                   ? 'Sync Last 7 Days'
@@ -342,8 +342,8 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
 
           {phase === 'running' && mode === 'quick' && (
             <div className="flex flex-col items-center gap-3 py-6">
-              <div className="h-8 w-8 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin" />
-              <p className="text-sm text-gray-500">Syncing last 7 days…</p>
+              <div className="h-8 w-8 rounded-full border-2 border-ring border-t-transparent animate-spin" />
+              <p className="text-sm text-fg-muted">Syncing last 7 days…</p>
             </div>
           )}
 
@@ -351,24 +351,24 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
             <div className="flex flex-col gap-3">
               <div className="flex justify-between items-center text-xs">
                 {cooldown ? (
-                  <span className="text-amber-600 font-medium">
+                  <span className="text-warning-fg font-medium">
                     ⏳ Cooldown {cooldown.seconds}s — next: {cooldown.nextMonth}
                   </span>
                 ) : (
-                  <span className="text-indigo-600 font-medium flex items-center gap-1.5">
-                    <span className="inline-block h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+                  <span className="text-accent font-medium flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 rounded-full bg-accent animate-pulse" />
                     {progress?.month ? `Scraping ${progress.month}` : 'Starting…'}
                   </span>
                 )}
-                <span className="text-gray-400">
+                <span className="text-fg-subtle">
                   {completedCount} / {totalCount}
                 </span>
               </div>
 
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-2 bg-track rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-300 ${
-                    cooldown ? 'bg-amber-400' : 'bg-indigo-500'
+                    cooldown ? 'bg-warning-fg opacity-90' : 'bg-accent-bar'
                   }`}
                   style={{ width: `${pct}%` }}
                 />
@@ -380,12 +380,12 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
                     <div
                       key={r.month}
                       className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${
-                        r.error ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'
+                        r.error ? 'bg-danger-bg text-danger-fg' : 'bg-success-bg text-success-fg'
                       }`}
                     >
                       <span className="font-mono">{r.month}</span>
                       {r.error ? (
-                        <span className="text-red-500 truncate max-w-[200px]" title={r.error}>
+                        <span className="text-danger-text truncate max-w-[200px]" title={r.error}>
                           {monthErrorLabel(r)}
                         </span>
                       ) : (
@@ -401,24 +401,24 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
 
           {phase === 'done' && summary && (
             <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 px-4 py-3 rounded-xl text-sm font-medium">
+              <div className="flex items-center gap-2 text-success-fg bg-success-bg px-4 py-3 rounded-xl text-sm font-medium">
                 <span>✓</span>
                 <span>Sync complete</span>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="bg-gray-50 rounded-xl py-3 px-2">
-                  <div className="text-lg font-bold text-gray-900">{summary.total_payments}</div>
-                  <div className="text-gray-500 mt-0.5">transactions</div>
+                <div className="bg-muted rounded-xl py-3 px-2">
+                  <div className="text-lg font-bold text-fg">{summary.total_payments}</div>
+                  <div className="text-fg-muted mt-0.5">transactions</div>
                 </div>
-                <div className="bg-gray-50 rounded-xl py-3 px-2">
-                  <div className="text-lg font-bold text-gray-900">{summary.months_scraped}</div>
-                  <div className="text-gray-500 mt-0.5">months</div>
+                <div className="bg-muted rounded-xl py-3 px-2">
+                  <div className="text-lg font-bold text-fg">{summary.months_scraped}</div>
+                  <div className="text-fg-muted mt-0.5">months</div>
                 </div>
-                <div className={`rounded-xl py-3 px-2 ${summary.months_failed > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
-                  <div className={`text-lg font-bold ${summary.months_failed > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                <div className={`rounded-xl py-3 px-2 ${summary.months_failed > 0 ? 'bg-danger-bg' : 'bg-muted'}`}>
+                  <div className={`text-lg font-bold ${summary.months_failed > 0 ? 'text-danger-text' : 'text-fg'}`}>
                     {summary.months_failed}
                   </div>
-                  <div className={`mt-0.5 ${summary.months_failed > 0 ? 'text-red-500' : 'text-gray-500'}`}>
+                  <div className={`mt-0.5 ${summary.months_failed > 0 ? 'text-danger-text' : 'text-fg-muted'}`}>
                     failed
                   </div>
                 </div>
@@ -429,7 +429,7 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
                     <div
                       key={r.month}
                       className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${
-                        r.error ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'
+                        r.error ? 'bg-danger-bg text-danger-fg' : 'bg-success-bg text-success-fg'
                       }`}
                     >
                       <span className="font-mono">{r.month}</span>
@@ -447,7 +447,7 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+                className="w-full py-2.5 rounded-xl bg-accent text-on-primary text-sm font-medium hover:bg-accent-hover transition-colors"
               >
                 Done
               </button>
@@ -456,13 +456,13 @@ export function ScrapeModal({ onClose, onSyncComplete }: Props) {
 
           {phase === 'error' && (
             <div className="flex flex-col gap-3">
-              <div className="bg-red-50 text-red-700 px-4 py-3 rounded-xl text-sm">
+              <div className="bg-danger-bg text-danger-fg px-4 py-3 rounded-xl text-sm">
                 {errorMsg || 'An unexpected error occurred.'}
               </div>
               <button
                 type="button"
                 onClick={() => setPhase('idle')}
-                className="w-full py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                className="w-full py-2.5 rounded-xl border border-border text-sm text-fg-muted hover:bg-hover-surface transition-colors"
               >
                 Try again
               </button>
