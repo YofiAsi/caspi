@@ -1,5 +1,5 @@
 import { useTheme } from 'next-themes'
-import { getTagChipStyle } from '../lib/tagColors'
+import { getTagChipStyle, type TagColorVariant } from '../lib/tagColors'
 
 type Props = {
   tag: string
