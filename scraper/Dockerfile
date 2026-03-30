@@ -35,9 +35,8 @@ WORKDIR /app
 
 COPY --from=ibs-builder /build/israeli-bank-scrapers ./vendor/israeli-bank-scrapers
 
-COPY package.json package-lock.json ./
+COPY package.json ./
 RUN PUPPETEER_SKIP_DOWNLOAD=true npm install --omit=dev
-RUN rm -rf vendor
 
 COPY src/ src/
 
