@@ -11,5 +11,3 @@ backend/.venv/
 .pytest_cache/
 .mypy_cache/
 node_modules/
-
-scraper/fork/
