@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState, useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState, useEffect, useMemo } from 'react'
 import { api } from '../api/client'
 import type { Payment } from '../types'
 import { TagChip } from './TagChip'
@@ -34,9 +34,19 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 export function PaymentDialog({ payment, onClose }: Props) {
   const queryClient = useQueryClient()
+  const { data: tagsData } = useQuery({
+    queryKey: ['tags'],
+    queryFn: () => api.tags.list(),
+    staleTime: 120_000,
+    enabled: payment != null,
+  })
+  const catalog = tagsData?.tags ?? []
+  const labelMap = useMemo(() => new Map(catalog.map((t) => [t.id, t.name])), [catalog])
+
   const [paymentTags, setPaymentTags] = useState<string[]>([])
   const [merchantTags, setMerchantTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
+  const [tagBusy, setTagBusy] = useState(false)
   const [tagScopeAllSimilar, setTagScopeAllSimilar] = useState(true)
   const [isRecurring, setIsRecurring] = useState(false)
   const [sharingEnabled, setSharingEnabled] = useState(false)
@@ -66,6 +76,48 @@ export function PaymentDialog({ payment, onClose }: Props) {
     },
   })
 
+  const resolveId = async (raw: string): Promise<string | null> => {
+    const n = raw.trim().toLowerCase()
+    if (!n) return null
+    const hit = catalog.find((t) => t.name === n)?.id
+    if (hit) return hit
+    const created = await api.tags.create(n)
+    await queryClient.invalidateQueries({ queryKey: ['tags'] })
+    return created.id
+  }
+
+  const addTag = () => {
+    void (async () => {
+      if (tagBusy) return
+      setTagBusy(true)
+      try {
+        const id = await resolveId(tagInput)
+        if (!id) {
+          setTagInput('')
+          return
+        }
+        const merged = new Set([...paymentTags, ...merchantTags])
+        if (merged.has(id)) {
+          setTagInput('')
+          return
+        }
+        if (tagScopeAllSimilar) {
+          setMerchantTags((prev) => [...prev, id])
+        } else {
+          setPaymentTags((prev) => [...prev, id])
+        }
+        setTagInput('')
+      } finally {
+        setTagBusy(false)
+      }
+    })()
+  }
+
+  const removeTag = (tagId: string) => {
+    setMerchantTags((prev) => prev.filter((t) => t !== tagId))
+    setPaymentTags((prev) => prev.filter((t) => t !== tagId))
+  }
+
   const handleSave = () => {
     const body: Parameters<typeof api.payments.patch>[1] = {
       payment_tags: paymentTags,
@@ -87,26 +139,6 @@ export function PaymentDialog({ payment, onClose }: Props) {
     mutation.mutate(body)
   }
 
-  const addTag = () => {
-    const trimmed = tagInput.trim().toLowerCase()
-    const merged = new Set([...paymentTags, ...merchantTags])
-    if (!trimmed || merged.has(trimmed)) {
-      setTagInput('')
-      return
-    }
-    if (tagScopeAllSimilar) {
-      setMerchantTags((prev) => [...prev, trimmed])
-    } else {
-      setPaymentTags((prev) => [...prev, trimmed])
-    }
-    setTagInput('')
-  }
-
-  const removeTag = (tag: string) => {
-    setMerchantTags((prev) => prev.filter((t) => t !== tag))
-    setPaymentTags((prev) => prev.filter((t) => t !== tag))
-  }
-
   const handleTagKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault()
@@ -120,6 +152,8 @@ export function PaymentDialog({ payment, onClose }: Props) {
       month: 'short',
       year: 'numeric',
     })
+
+  const label = (id: string) => labelMap.get(id) ?? `${id.slice(0, 8)}…`
 
   return (
     <Dialog.Root open={payment !== null} onOpenChange={(open) => !open && onClose()}>
@@ -142,32 +176,31 @@ export function PaymentDialog({ payment, onClose }: Props) {
               </div>
 
               <div className="space-y-5">
-                {payment.merchant && (
-                  <section>
-                    <label className="block text-sm font-medium text-fg-secondary mb-1.5">Display name</label>
-                    <input
-                      type="text"
-                      value={merchantAlias}
-                      onChange={(e) => setMerchantAlias(e.target.value)}
-                      placeholder={payment.merchant}
-                      className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-input-bg text-fg focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
-                    {merchantAlias.trim() && (
-                      <p className="text-xs text-fg-subtle mt-1">Original: {payment.merchant}</p>
-                    )}
-                  </section>
-                )}
+                <section>
+                  <label className="block text-sm font-medium text-fg-secondary mb-1.5">Display alias</label>
+                  <input
+                    type="text"
+                    value={merchantAlias}
+                    onChange={(e) => setMerchantAlias(e.target.value)}
+                    placeholder={payment.display_name}
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-input-bg text-fg focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  {merchantAlias.trim() && (
+                    <p className="text-xs text-fg-subtle mt-1">Statement: {payment.description}</p>
+                  )}
+                </section>
 
                 <section>
                   <label className="block text-sm font-medium text-fg-secondary mb-1.5">Tags</label>
                   <p className="text-xs text-fg-muted mb-1">All like this (future imports too)</p>
                   <div className="flex flex-wrap gap-1.5 mb-3">
-                    {merchantTags.map((tag) => (
+                    {merchantTags.map((tid) => (
                       <TagChip
-                        key={`m-${tag}`}
-                        tag={tag}
+                        key={`m-${tid}`}
+                        tagId={tid}
+                        label={label(tid)}
                         className="px-2.5 py-0.5 text-xs"
-                        onRemove={() => removeTag(tag)}
+                        onRemove={() => removeTag(tid)}
                       />
                     ))}
                     {merchantTags.length === 0 && (
@@ -176,12 +209,13 @@ export function PaymentDialog({ payment, onClose }: Props) {
                   </div>
                   <p className="text-xs text-fg-muted mb-1">This payment only</p>
                   <div className="flex flex-wrap gap-1.5 mb-2">
-                    {paymentTags.map((tag) => (
+                    {paymentTags.map((tid) => (
                       <TagChip
-                        key={`p-${tag}`}
-                        tag={tag}
+                        key={`p-${tid}`}
+                        tagId={tid}
+                        label={label(tid)}
                         className="px-2.5 py-0.5 text-xs"
-                        onRemove={() => removeTag(tag)}
+                        onRemove={() => removeTag(tid)}
                       />
                     ))}
                     {paymentTags.length === 0 && (
@@ -204,12 +238,14 @@ export function PaymentDialog({ payment, onClose }: Props) {
                       onChange={(e) => setTagInput(e.target.value)}
                       onKeyDown={handleTagKeyDown}
                       placeholder="Add a tag…"
+                      disabled={tagBusy}
                       className="flex-1 text-sm border border-border rounded-lg px-3 py-2 bg-input-bg text-fg focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                     <button
                       type="button"
                       onClick={addTag}
-                      className="px-3 py-2 text-sm bg-accent-soft text-accent-soft-fg rounded-lg hover:bg-accent-soft-hover font-medium"
+                      disabled={tagBusy}
+                      className="px-3 py-2 text-sm bg-accent-soft text-accent-soft-fg rounded-lg hover:bg-accent-soft-hover font-medium disabled:opacity-50"
                     >
                       Add
                     </button>

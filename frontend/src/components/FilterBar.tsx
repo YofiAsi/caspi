@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../api/client'
 import type { PaymentFilters } from '../types'
 
 interface Props {
@@ -9,25 +10,18 @@ interface Props {
 const inputClass =
   'text-xs border border-border rounded-lg px-2.5 py-1.5 bg-input-bg text-fg focus:outline-none focus:ring-2 focus:ring-ring'
 
-export function FilterBar({ value, onChange }: Props) {
-  const [includeInput, setIncludeInput] = useState('')
-  const [excludeInput, setExcludeInput] = useState('')
+const selectClass = `w-full min-h-[88px] ${inputClass}`
 
-  const applyTagInputs = () => {
-    const includeTags = includeInput
-      .split(',')
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean)
-    const excludeTags = excludeInput
-      .split(',')
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean)
-    onChange({
-      ...value,
-      includeTags: includeTags.length > 0 ? includeTags : undefined,
-      excludeTags: excludeTags.length > 0 ? excludeTags : undefined,
-    })
-  }
+export function FilterBar({ value, onChange }: Props) {
+  const { data: tagsData } = useQuery({
+    queryKey: ['tags'],
+    queryFn: () => api.tags.list(),
+    staleTime: 120_000,
+  })
+  const tagOptions = tagsData?.tags ?? []
+
+  const includeSet = new Set(value.includeTags ?? [])
+  const excludeSet = new Set(value.excludeTags ?? [])
 
   const handleDateChange = (field: 'dateFrom' | 'dateTo', v: string) => {
     onChange({
@@ -49,25 +43,45 @@ export function FilterBar({ value, onChange }: Props) {
       <div className="flex flex-wrap gap-2">
         <div className="flex-1 min-w-[180px]">
           <label className="block text-xs font-medium text-fg-muted mb-1">Include tags</label>
-          <input
-            type="text"
-            value={includeInput}
-            onChange={(e) => setIncludeInput(e.target.value)}
-            onBlur={applyTagInputs}
-            placeholder="food, travel"
-            className={`w-full ${inputClass}`}
-          />
+          <select
+            multiple
+            className={selectClass}
+            value={[...includeSet]}
+            onChange={(e) => {
+              const next = new Set([...e.target.selectedOptions].map((o) => o.value))
+              onChange({
+                ...value,
+                includeTags: next.size > 0 ? [...next] : undefined,
+              })
+            }}
+          >
+            {tagOptions.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="flex-1 min-w-[180px]">
           <label className="block text-xs font-medium text-fg-muted mb-1">Exclude tags</label>
-          <input
-            type="text"
-            value={excludeInput}
-            onChange={(e) => setExcludeInput(e.target.value)}
-            onBlur={applyTagInputs}
-            placeholder="work, refund"
-            className={`w-full ${inputClass}`}
-          />
+          <select
+            multiple
+            className={selectClass}
+            value={[...excludeSet]}
+            onChange={(e) => {
+              const next = new Set([...e.target.selectedOptions].map((o) => o.value))
+              onChange({
+                ...value,
+                excludeTags: next.size > 0 ? [...next] : undefined,
+              })
+            }}
+          >
+            {tagOptions.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

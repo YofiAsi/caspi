@@ -15,20 +15,30 @@ export interface PaymentExtra {
   }
 }
 
+export interface TagItem {
+  id: string
+  name: string
+}
+
+export interface CollectionItem {
+  id: string
+  name: string
+}
+
 export interface Payment {
   payment_id: string
+  merchant_id: string
   date: string
   description: string
   amount: number
   currency: string
   effective_amount: number
-  merchant: string | null
   display_name: string
   merchant_alias: string | null
   payment_type: string
   payment_tags: string[]
   merchant_tags: string[]
-  tags: string[]
+  collection_ids: string[]
   share_amount: number | null
   share_currency: string | null
   extra: PaymentExtra
@@ -41,9 +51,9 @@ export interface ScrapeResult {
 }
 
 export interface PatchPaymentBody {
-  tags?: string[]
   payment_tags?: string[]
   merchant_tags?: string[]
+  collection_ids?: string[]
   payment_type?: string
   share_amount?: number | null
   share_currency?: string | null
@@ -78,6 +88,7 @@ export interface CurrencyTotals {
 }
 
 export interface TagSummaryRow {
+  tag_id: string
   tag: string
   currency: string
   sum_effective: string

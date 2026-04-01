@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Payment } from '../types'
 import { api } from '../api/client'
 import { TagChip } from './TagChip'
@@ -17,8 +17,17 @@ interface DialogProps {
 
 function BulkTagDialog({ payments, onClose, onSaved }: DialogProps) {
   const queryClient = useQueryClient()
-  const [tags, setTags] = useState<string[]>([])
+  const { data: tagsData } = useQuery({
+    queryKey: ['tags'],
+    queryFn: () => api.tags.list(),
+    staleTime: 120_000,
+  })
+  const catalog = tagsData?.tags ?? []
+  const labelMap = new Map(catalog.map((t) => [t.id, t.name]))
+
+  const [tagIds, setTagIds] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
+  const [busy, setBusy] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -33,13 +42,31 @@ function BulkTagDialog({ payments, onClose, onSaved }: DialogProps) {
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
 
-  const addTag = () => {
-    const trimmed = tagInput.trim().toLowerCase()
-    if (trimmed && !tags.includes(trimmed)) setTags((prev) => [...prev, trimmed])
-    setTagInput('')
+  const resolveId = async (raw: string): Promise<string | null> => {
+    const n = raw.trim().toLowerCase()
+    if (!n) return null
+    const hit = catalog.find((t) => t.name === n)?.id
+    if (hit) return hit
+    const created = await api.tags.create(n)
+    await queryClient.invalidateQueries({ queryKey: ['tags'] })
+    return created.id
   }
 
-  const removeTag = (tag: string) => setTags((prev) => prev.filter((t) => t !== tag))
+  const addTag = () => {
+    void (async () => {
+      if (busy) return
+      setBusy(true)
+      try {
+        const id = await resolveId(tagInput)
+        if (id && !tagIds.includes(id)) setTagIds((prev) => [...prev, id])
+        setTagInput('')
+      } finally {
+        setBusy(false)
+      }
+    })()
+  }
+
+  const removeTag = (id: string) => setTagIds((prev) => prev.filter((t) => t !== id))
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -49,10 +76,10 @@ function BulkTagDialog({ payments, onClose, onSaved }: DialogProps) {
   }
 
   const mutation = useMutation({
-    mutationFn: async (newTags: string[]) => {
+    mutationFn: async (newIds: string[]) => {
       await Promise.all(
         payments.map((p) => {
-          const merged = Array.from(new Set([...p.payment_tags, ...newTags]))
+          const merged = Array.from(new Set([...p.payment_tags, ...newIds]))
           return api.payments.patch(p.payment_id, { payment_tags: merged })
         }),
       )
@@ -64,9 +91,11 @@ function BulkTagDialog({ payments, onClose, onSaved }: DialogProps) {
   })
 
   const handleSave = () => {
-    if (tags.length === 0) return
-    mutation.mutate(tags)
+    if (tagIds.length === 0) return
+    mutation.mutate(tagIds)
   }
+
+  const label = (id: string) => labelMap.get(id) ?? `${id.slice(0, 8)}…`
 
   return (
     <div
@@ -103,27 +132,28 @@ function BulkTagDialog({ payments, onClose, onSaved }: DialogProps) {
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Type a tag and press Enter"
+                placeholder="Type a tag name and press Enter"
                 className="flex-1 text-sm border border-border rounded-lg px-3 py-1.5 bg-input-bg text-fg focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <button
                 type="button"
                 onClick={addTag}
-                disabled={!tagInput.trim()}
+                disabled={!tagInput.trim() || busy}
                 className="text-sm px-3 py-1.5 rounded-lg bg-accent-soft text-accent font-medium hover:bg-accent-soft-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 Add
               </button>
             </div>
 
-            {tags.length > 0 && (
+            {tagIds.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-3">
-                {tags.map((tag) => (
+                {tagIds.map((id) => (
                   <TagChip
-                    key={tag}
-                    tag={tag}
+                    key={id}
+                    tagId={id}
+                    label={label(id)}
                     className="px-2 py-0.5 text-xs"
-                    onRemove={() => removeTag(tag)}
+                    onRemove={() => removeTag(id)}
                   />
                 ))}
               </div>
@@ -145,7 +175,7 @@ function BulkTagDialog({ payments, onClose, onSaved }: DialogProps) {
             <button
               type="button"
               onClick={handleSave}
-              disabled={tags.length === 0 || mutation.isPending}
+              disabled={tagIds.length === 0 || mutation.isPending}
               className="text-sm px-4 py-1.5 rounded-lg bg-accent text-on-primary font-medium hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {mutation.isPending ? 'Saving…' : 'Save'}

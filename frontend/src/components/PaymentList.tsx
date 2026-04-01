@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { Payment, PaymentFilters, PaymentListCursor } from '../types'
 import { PaymentCard } from './PaymentCard'
@@ -21,6 +21,17 @@ export function PaymentList({
   onSelectionChange,
   onTopVisibleYearChange,
 }: Props) {
+  const { data: tagsData } = useQuery({
+    queryKey: ['tags'],
+    queryFn: () => api.tags.list(),
+    staleTime: 120_000,
+  })
+  const tagLabels = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const t of tagsData?.tags ?? []) m.set(t.id, t.name)
+    return m
+  }, [tagsData])
+
   const {
     data,
     isPending,
@@ -208,6 +219,7 @@ export function PaymentList({
         >
           <PaymentCard
             payment={payment}
+            tagLabels={tagLabels}
             onClick={(e) => handleCardClick(payment, e)}
             isSelected={selectedPaymentIds.has(payment.payment_id)}
           />

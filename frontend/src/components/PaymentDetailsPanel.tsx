@@ -1,9 +1,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTheme } from 'next-themes'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { Payment } from '../types'
+import type { CollectionItem, Payment, TagItem } from '../types'
 import { api } from '../api/client'
-import { getTagAccentColor, type TagColorVariant } from '../lib/tagColors'
+import { getTagAccentColorById, type TagColorVariant } from '../lib/tagColors'
 import { formatCurrency } from '../utils/currency'
 import { paymentShowsOriginalCurrency } from '../utils/paymentExtra'
 import { TagChip } from './TagChip'
@@ -52,7 +52,7 @@ function TagAutocompleteField({
 }: {
   value: string
   onChange: (v: string) => void
-  allTags: string[]
+  allTags: TagItem[]
   paymentTags: string[]
   merchantTags: string[]
   disabled: boolean
@@ -67,9 +67,9 @@ function TagAutocompleteField({
 
   const suggestions = useMemo(() => {
     const applied = new Set([...paymentTags, ...merchantTags])
-    const unused = allTags.filter((t) => !applied.has(t))
+    const unused = allTags.filter((t) => !applied.has(t.id))
     const q = value.trim().toLowerCase()
-    if (q) return unused.filter((t) => t.includes(q)).slice(0, 50)
+    if (q) return unused.filter((t) => t.name.includes(q)).slice(0, 50)
     return unused.slice(0, 20)
   }, [allTags, paymentTags, merchantTags, value])
 
@@ -89,8 +89,8 @@ function TagAutocompleteField({
     return () => document.removeEventListener('mousedown', onDocMouseDown)
   }, [])
 
-  const pick = (tag: string) => {
-    onCommitValue(tag)
+  const pick = (tag: TagItem) => {
+    onCommitValue(tag.name)
     onChange('')
     setOpen(false)
     setHighlighted(-1)
@@ -167,7 +167,7 @@ function TagAutocompleteField({
         >
           {suggestions.map((tag, idx) => (
             <li
-              key={tag}
+              key={tag.id}
               role="option"
               aria-selected={idx === highlighted}
               className={`cursor-pointer px-2.5 py-1.5 text-xs flex items-center gap-2 ${
@@ -181,10 +181,10 @@ function TagAutocompleteField({
             >
               <span
                 className="shrink-0 size-2 rounded-full"
-                style={{ backgroundColor: getTagAccentColor(tag, tagVariant) }}
+                style={{ backgroundColor: getTagAccentColorById(tag.id, tagVariant) }}
                 aria-hidden
               />
-              {tag}
+              {tag.name}
             </li>
           ))}
         </ul>
@@ -201,8 +201,9 @@ interface ContentProps {
   setTagInput: (v: string) => void
   addTag: () => void
   commitTag: (trimmedLower: string) => void
-  removeTag: (tag: string) => void
-  allTags: string[]
+  removeTag: (tagId: string) => void
+  allTags: TagItem[]
+  tagCommitBusy: boolean
   tagScopeAllSimilar: boolean
   setTagScopeAllSimilar: (v: boolean) => void
   isPending: boolean
@@ -213,6 +214,10 @@ interface ContentProps {
   confirmAlias: () => void
   cancelAlias: () => void
   isAliasPending: boolean
+  collectionIds: string[]
+  allCollections: CollectionItem[]
+  onCollectionChange: (ids: string[]) => void
+  collectionsBusy: boolean
 }
 
 function PanelContent({
@@ -225,6 +230,7 @@ function PanelContent({
   commitTag,
   removeTag,
   allTags,
+  tagCommitBusy,
   tagScopeAllSimilar,
   setTagScopeAllSimilar,
   isPending,
@@ -235,9 +241,16 @@ function PanelContent({
   confirmAlias,
   cancelAlias,
   isAliasPending,
+  collectionIds,
+  allCollections,
+  onCollectionChange,
+  collectionsBusy,
 }: ContentProps) {
   const [rawExpanded, setRawExpanded] = useState(false)
   const { extra } = payment
+
+  const tagLabelMap = useMemo(() => new Map(allTags.map((t) => [t.id, t.name])), [allTags])
+  const tagLabel = (id: string) => tagLabelMap.get(id) ?? `${id.slice(0, 8)}…`
 
   const formattedDate = new Date(payment.date).toLocaleDateString('en-GB', {
     day: '2-digit',
@@ -319,10 +332,7 @@ function PanelContent({
               </button>
             </div>
           )}
-          {payment.merchant_alias && (
-            <p className="text-xs text-fg-subtle mt-0.5">{payment.merchant}</p>
-          )}
-          {!payment.merchant_alias && payment.description !== payment.display_name && (
+          {payment.description !== payment.display_name && (
             <p className="text-xs text-fg-subtle mt-0.5">{payment.description}</p>
           )}
           <p className="text-xl font-bold text-fg mt-1.5">{effectiveAmount}</p>
@@ -379,12 +389,13 @@ function PanelContent({
           </p>
           <p className="text-xs text-fg-muted mb-1">All like this (future imports too)</p>
           <div className="flex flex-wrap gap-1.5 mb-3">
-            {merchantTags.map((tag) => (
+            {merchantTags.map((tid) => (
               <TagChip
-                key={`m-${tag}`}
-                tag={tag}
+                key={`m-${tid}`}
+                tagId={tid}
+                label={tagLabel(tid)}
                 className="px-2.5 py-0.5 text-xs"
-                onRemove={() => removeTag(tag)}
+                onRemove={() => removeTag(tid)}
                 disabled={isPending}
               />
             ))}
@@ -394,12 +405,13 @@ function PanelContent({
           </div>
           <p className="text-xs text-fg-muted mb-1">This payment only</p>
           <div className="flex flex-wrap gap-1.5 mb-2">
-            {paymentTags.map((tag) => (
+            {paymentTags.map((tid) => (
               <TagChip
-                key={`p-${tag}`}
-                tag={tag}
+                key={`p-${tid}`}
+                tagId={tid}
+                label={tagLabel(tid)}
                 className="px-2.5 py-0.5 text-xs"
-                onRemove={() => removeTag(tag)}
+                onRemove={() => removeTag(tid)}
                 disabled={isPending}
               />
             ))}
@@ -424,18 +436,40 @@ function PanelContent({
               allTags={allTags}
               paymentTags={paymentTags}
               merchantTags={merchantTags}
-              disabled={isPending}
+              disabled={isPending || tagCommitBusy}
               onCommitValue={commitTag}
             />
             <button
               type="button"
               onClick={addTag}
-              disabled={isPending}
+              disabled={isPending || tagCommitBusy}
               className="px-3 py-1.5 text-xs bg-accent-soft text-accent-soft-fg rounded-lg hover:bg-accent-soft-hover font-medium disabled:opacity-50"
             >
               Add
             </button>
           </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-1.5">
+            Collections
+          </p>
+          <select
+            multiple
+            className="w-full min-h-[72px] text-xs border border-border rounded-lg px-2.5 py-1.5 bg-input-bg text-fg focus:outline-none focus:ring-2 focus:ring-ring"
+            value={collectionIds}
+            disabled={collectionsBusy || isPending}
+            onChange={(e) => {
+              const next = [...e.target.selectedOptions].map((o) => o.value)
+              onCollectionChange(next)
+            }}
+          >
+            {allCollections.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {extra.extended_details?.rawDetails != null && (
@@ -473,6 +507,7 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
   const [tagScopeAllSimilar, setTagScopeAllSimilar] = useState(true)
   const [isEditingAlias, setIsEditingAlias] = useState(false)
   const [aliasInput, setAliasInput] = useState('')
+  const [collectionIds, setCollectionIds] = useState<string[]>([])
 
   const { data: tagsData } = useQuery({
     queryKey: ['tags'],
@@ -480,12 +515,21 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
     staleTime: 120_000,
     enabled: payment != null,
   })
-  const allTags = tagsData?.tags ?? []
+  const allTags: TagItem[] = tagsData?.tags ?? []
+
+  const { data: allCollections = [] } = useQuery({
+    queryKey: ['collections'],
+    queryFn: () => api.collections.list(),
+    staleTime: 120_000,
+    enabled: payment != null,
+  })
+  const [tagCommitBusy, setTagCommitBusy] = useState(false)
 
   useEffect(() => {
     if (payment) {
       setPaymentTags(payment.payment_tags)
       setMerchantTags(payment.merchant_tags)
+      setCollectionIds(payment.collection_ids)
       setTagInput('')
       setIsEditingAlias(false)
       setAliasInput('')
@@ -523,31 +567,71 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
     },
   })
 
+  const collectionMutation = useMutation({
+    mutationFn: (ids: string[]) =>
+      api.payments.patch(payment!.payment_id, { collection_ids: ids }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] })
+      onPaymentUpdate?.(data)
+      setCollectionIds(data.collection_ids)
+    },
+  })
+
+  const handleCollectionChange = (ids: string[]) => {
+    setCollectionIds(ids)
+    if (payment) collectionMutation.mutate(ids)
+  }
+
   const applyBuckets = (nextPayment: string[], nextMerchant: string[]) => {
     setPaymentTags(nextPayment)
     setMerchantTags(nextMerchant)
     if (payment) mutation.mutate({ payment_tags: nextPayment, merchant_tags: nextMerchant })
   }
 
-  const commitTag = (trimmed: string) => {
-    const merged = new Set([...paymentTags, ...merchantTags])
-    if (!trimmed || merged.has(trimmed)) {
-      setTagInput('')
-      return
-    }
-    if (tagScopeAllSimilar) {
-      applyBuckets(paymentTags, [...merchantTags, trimmed])
-    } else {
-      applyBuckets([...paymentTags, trimmed], merchantTags)
-    }
-    setTagInput('')
+  const resolveTagId = async (normalizedName: string): Promise<string | null> => {
+    const fromCat = allTags.find((t) => t.name === normalizedName)?.id
+    if (fromCat) return fromCat
+    const created = await api.tags.create(normalizedName)
+    await queryClient.invalidateQueries({ queryKey: ['tags'] })
+    return created.id
   }
 
-  const addTag = () => commitTag(tagInput.trim().toLowerCase())
+  const commitTag = (raw: string) => {
+    void (async () => {
+      const trimmed = raw.trim().toLowerCase()
+      if (!trimmed || tagCommitBusy) {
+        setTagInput('')
+        return
+      }
+      setTagCommitBusy(true)
+      try {
+        const id = await resolveTagId(trimmed)
+        if (!id) {
+          setTagInput('')
+          return
+        }
+        const merged = new Set([...paymentTags, ...merchantTags])
+        if (merged.has(id)) {
+          setTagInput('')
+          return
+        }
+        if (tagScopeAllSimilar) {
+          applyBuckets(paymentTags, [...merchantTags, id])
+        } else {
+          applyBuckets([...paymentTags, id], merchantTags)
+        }
+        setTagInput('')
+      } finally {
+        setTagCommitBusy(false)
+      }
+    })()
+  }
 
-  const removeTag = (tag: string) => {
-    const nextM = merchantTags.filter((t) => t !== tag)
-    const nextP = paymentTags.filter((t) => t !== tag)
+  const addTag = () => commitTag(tagInput)
+
+  const removeTag = (tagId: string) => {
+    const nextM = merchantTags.filter((t) => t !== tagId)
+    const nextP = paymentTags.filter((t) => t !== tagId)
     if (nextM.length === merchantTags.length && nextP.length === paymentTags.length) return
     applyBuckets(nextP, nextM)
   }
@@ -576,6 +660,7 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
     commitTag,
     removeTag,
     allTags,
+    tagCommitBusy,
     tagScopeAllSimilar,
     setTagScopeAllSimilar,
     isPending: mutation.isPending,
@@ -586,6 +671,10 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
     confirmAlias,
     cancelAlias,
     isAliasPending: aliasMutation.isPending,
+    collectionIds,
+    allCollections,
+    onCollectionChange: handleCollectionChange,
+    collectionsBusy: collectionMutation.isPending,
   }
 
   if (isSmall) {

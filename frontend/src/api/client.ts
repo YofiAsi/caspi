@@ -1,4 +1,5 @@
 import type {
+  CollectionItem,
   PatchPaymentBody,
   Payment,
   PaymentFilters,
@@ -6,6 +7,7 @@ import type {
   PaymentListPage,
   PaymentSummary,
   ScrapeResult,
+  TagItem,
 } from '../types'
 
 const BASE = '/api'
@@ -91,7 +93,12 @@ export const api = {
       }),
   },
   tags: {
-    list: (): Promise<{ tags: string[] }> => request('/tags'),
+    list: (): Promise<{ tags: TagItem[] }> => request('/tags'),
+    create: (name: string): Promise<TagItem> =>
+      request('/tags', { method: 'POST', body: JSON.stringify({ name }) }),
+  },
+  collections: {
+    list: (): Promise<CollectionItem[]> => request('/collections'),
   },
   auth: {
     logout: (): Promise<void> =>
