@@ -276,6 +276,11 @@ function PanelContent({
   const showInstallments =
     extra.installment_number != null && extra.installment_total != null
 
+  const hasMerchantAlias = Boolean(payment.merchant_alias?.trim())
+  const headlineMerchantName = hasMerchantAlias
+    ? payment.display_name
+    : payment.description.trim() || payment.display_name
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="px-4 py-4 space-y-5">
@@ -319,7 +324,7 @@ function PanelContent({
             </div>
           ) : (
             <div className="flex items-center gap-1.5 group">
-              <p className="text-sm font-semibold text-fg leading-snug">{payment.display_name}</p>
+              <p className="text-sm font-semibold text-fg leading-snug">{headlineMerchantName}</p>
               <button
                 type="button"
                 onClick={startEditAlias}
@@ -332,7 +337,7 @@ function PanelContent({
               </button>
             </div>
           )}
-          {payment.description !== payment.display_name && (
+          {hasMerchantAlias && payment.description !== payment.display_name && (
             <p className="text-xs text-fg-subtle mt-0.5">{payment.description}</p>
           )}
           <p className="text-xl font-bold text-fg mt-1.5">{effectiveAmount}</p>
@@ -637,7 +642,7 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
   }
 
   const startEditAlias = () => {
-    setAliasInput(payment?.display_name ?? '')
+    setAliasInput(payment?.merchant_alias?.trim() ?? '')
     setIsEditingAlias(true)
   }
 
