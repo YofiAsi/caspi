@@ -35,7 +35,7 @@ export function PaymentCard({ payment, tagLabels, onClick, isSelected }: Props) 
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => e.key === 'Enter' && onClick(e as unknown as React.MouseEvent)}
-      className={`w-full text-left px-4 py-3.5 transition-colors cursor-pointer border-b border-border-subtle last:border-0 ${
+      className={`w-full text-left px-4 py-3.5 select-none transition-colors cursor-pointer border-b border-border-subtle last:border-0 ${
         isSelected ? 'bg-accent-soft' : 'hover:bg-hover-surface active:bg-active-surface'
       }`}
     >
