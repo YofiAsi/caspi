@@ -8,9 +8,10 @@ from caspi.interfaces.routers.auth import (
     register_google_oauth,
     router as auth_router,
 )
+from caspi.interfaces.routers.collections import router as collections_router
+from caspi.interfaces.routers.merchants import router as merchants_router
 from caspi.interfaces.routers.payments import router as payments_router
 from caspi.interfaces.routers.scrape import router as scrape_router
-from caspi.interfaces.routers.sharing_rules import router as sharing_rules_router
 from caspi.interfaces.routers.tags import router as tags_router
 from caspi.settings import settings
 
@@ -40,7 +41,8 @@ app.include_router(auth_router)
 if settings.auth_enabled and settings.oauth_google_callback_path != "/api/auth/google/callback":
     app.add_api_route(settings.oauth_google_callback_path, google_callback, methods=["GET"])
 app.include_router(scrape_router)
-app.include_router(sharing_rules_router)
+app.include_router(merchants_router)
+app.include_router(collections_router)
 app.include_router(payments_router)
 app.include_router(tags_router)
 

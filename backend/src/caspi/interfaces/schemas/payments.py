@@ -9,18 +9,18 @@ TOP_MERCHANTS_PER_CURRENCY = 10
 
 class PaymentResponse(BaseModel):
     payment_id: str
+    merchant_id: str
     date: date
     description: str
     amount: Decimal
     currency: str
     effective_amount: Decimal
-    merchant: Optional[str]
     display_name: str
     merchant_alias: Optional[str]
     payment_type: str
     payment_tags: list[str]
     merchant_tags: list[str]
-    tags: list[str]
+    collection_ids: list[str]
     share_amount: Optional[Decimal]
     share_currency: Optional[str]
     extra: dict
@@ -37,9 +37,9 @@ class PaymentListPageResponse(BaseModel):
 
 
 class PatchPaymentBody(BaseModel):
-    tags: Optional[list[str]] = None
     payment_tags: Optional[list[str]] = None
     merchant_tags: Optional[list[str]] = None
+    collection_ids: Optional[list[str]] = None
     payment_type: Optional[str] = None
     share_amount: Optional[Decimal] = None
     share_currency: Optional[str] = None
@@ -53,6 +53,7 @@ class CurrencyTotals(BaseModel):
 
 
 class TagSummaryRow(BaseModel):
+    tag_id: str
     tag: str
     currency: str
     sum_effective: Decimal

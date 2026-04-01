@@ -1,12 +1,11 @@
-import pytest
 from decimal import Decimal
 from datetime import date
+from uuid import uuid4
 
 from caspi.domain.entities.payment import Payment
 from caspi.domain.value_objects.enums import PaymentSource, PaymentType
-from caspi.domain.value_objects.ids import CategoryId, ImportId, PaymentId
+from caspi.domain.value_objects.ids import CategoryId, ImportId, MerchantId, PaymentId
 from caspi.domain.value_objects.money import Money
-from caspi.domain.value_objects.tag import Tag
 
 
 def _make_payment() -> Payment:
@@ -15,9 +14,10 @@ def _make_payment() -> Payment:
         amount=Money(Decimal("200.00"), "ILS"),
         date=date(2025, 3, 10),
         description="Supermarket",
-        merchant="Shufersal",
         source=PaymentSource.ISRACARD,
         import_id=ImportId(),
+        merchant_id=MerchantId(),
+        merchant_canonical_name="shufersal",
     )
 
 
@@ -33,31 +33,11 @@ def test_assign_category():
     assert payment.category_id == cat_id
 
 
-def test_add_tag():
+def test_set_payment_tag_ids_dedupes():
     payment = _make_payment()
-    tag = Tag("groceries")
-    payment.add_tag(tag)
-    assert tag in payment.tags
-
-
-def test_add_duplicate_tag_ignored():
-    payment = _make_payment()
-    tag = Tag("groceries")
-    payment.add_tag(tag)
-    payment.add_tag(tag)
-    assert payment.tags.count(tag) == 1
-
-
-def test_remove_tag():
-    payment = _make_payment()
-    tag = Tag("groceries")
-    payment.add_tag(tag)
-    payment.remove_tag(tag)
-    assert tag not in payment.tags
-
-
-def test_tag_normalization():
-    assert Tag("  Groceries  ") == Tag("groceries")
+    a, b = uuid4(), uuid4()
+    payment.set_payment_tag_ids([a, b, a])
+    assert payment.payment_tag_ids == [a, b]
 
 
 def test_set_payment_type():

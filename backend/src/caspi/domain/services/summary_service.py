@@ -3,11 +3,11 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
+from uuid import UUID
 
 from caspi.domain.entities.payment import Payment
 from caspi.domain.value_objects.ids import CategoryId
 from caspi.domain.value_objects.money import Money
-from caspi.domain.value_objects.tag import Tag
 
 
 @dataclass
@@ -25,7 +25,7 @@ class CategoryTotal:
 
 @dataclass
 class TagTotal:
-    tag: Tag
+    tag_id: UUID
     total: Money
 
 
@@ -56,11 +56,11 @@ class SummaryService:
         ]
 
     def total_by_tag(self, payments: list[Payment]) -> list[TagTotal]:
-        buckets: dict[Tag, Money] = defaultdict(lambda: Money(Decimal(0), self._currency(payments)))
+        buckets: dict[UUID, Money] = defaultdict(lambda: Money(Decimal(0), self._currency(payments)))
         for payment in payments:
-            for tag in payment.tags:
-                buckets[tag] = buckets[tag] + payment.effective_amount
-        return [TagTotal(tag=tag, total=total) for tag, total in buckets.items()]
+            for tid in payment.payment_tag_ids:
+                buckets[tid] = buckets[tid] + payment.effective_amount
+        return [TagTotal(tag_id=tid, total=total) for tid, total in buckets.items()]
 
     def grand_total(self, payments: list[Payment]) -> Money:
         if not payments:

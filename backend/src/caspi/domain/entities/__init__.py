@@ -3,7 +3,6 @@ from caspi.domain.entities.import_batch import ImportBatch
 from caspi.domain.entities.merchant_rule import MerchantRule
 from caspi.domain.entities.payment import Payment
 from caspi.domain.entities.project import Project
-from caspi.domain.entities.sharing_rule import SharingRule
 
 __all__ = [
     "Category",
@@ -11,5 +10,4 @@ __all__ = [
     "MerchantRule",
     "Payment",
     "Project",
-    "SharingRule",
 ]

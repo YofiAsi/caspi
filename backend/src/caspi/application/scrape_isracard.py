@@ -4,9 +4,9 @@ from decimal import Decimal
 
 import httpx
 
-from caspi.domain.entities import ImportBatch, Payment, SharingRule
-from caspi.domain.repositories import ImportBatchRepository, PaymentRepository, SharingRuleRepository
-from caspi.domain.value_objects import ImportId, Money, PaymentId, PaymentSource, ShareType, SharedPayment
+from caspi.domain.entities import ImportBatch, Payment
+from caspi.domain.repositories import ImportBatchRepository, MerchantRepository, PaymentRepository
+from caspi.domain.value_objects import ImportId, Money, PaymentId, PaymentSource
 
 
 @dataclass
@@ -45,34 +45,18 @@ def aligned_original_amount_for_store(charged_amount: Decimal, original_raw: obj
     return _decimal_to_json_number(aligned)
 
 
-def _apply_sharing_rule(payment: Payment, rule: SharingRule) -> None:
-    target = payment.merchant or payment.description
-    if not rule.matches(target):
-        return
-    if rule.share_type == ShareType.PERCENTAGE:
-        my_share = payment.amount * (rule.share_value / Decimal("100"))
-    else:
-        if rule.currency != payment.amount.currency:
-            return
-        my_share = Money(rule.share_value, rule.currency)
-    try:
-        payment.set_shared(SharedPayment(my_share=my_share))
-    except ValueError:
-        pass
-
-
 class ScrapeIsracardUseCase:
     def __init__(
         self,
         scraper_url: str,
         payment_repo: PaymentRepository,
         import_batch_repo: ImportBatchRepository,
-        sharing_rule_repo: SharingRuleRepository,
+        merchant_repo: MerchantRepository,
     ):
         self._scraper_url = scraper_url
         self._payment_repo = payment_repo
         self._import_batch_repo = import_batch_repo
-        self._sharing_rule_repo = sharing_rule_repo
+        self._merchant_repo = merchant_repo
 
     async def execute(self, request: ScrapeIsracardRequest) -> ScrapeIsracardResult:
         body: dict = {
@@ -98,7 +82,6 @@ class ScrapeIsracardUseCase:
         payments: list[Payment] = []
 
         existing_identifiers = await self._payment_repo.find_source_identifiers(PaymentSource.ISRACARD)
-        sharing_rules = await self._sharing_rule_repo.find_all()
 
         for account in data.get("accounts", []):
             account_number = account.get("accountNumber", "unknown")
@@ -111,6 +94,8 @@ class ScrapeIsracardUseCase:
                 description = txn.get("description", "")
 
                 installments = txn.get("installments")
+                canon = description.strip().lower()
+                merchant_id = await self._merchant_repo.ensure_by_canonical_name(canon)
                 payment = Payment(
                     payment_id=PaymentId(),
                     amount=Money(charged_amount, "ILS"),
@@ -118,7 +103,8 @@ class ScrapeIsracardUseCase:
                     description=description,
                     source=PaymentSource.ISRACARD,
                     import_id=import_id,
-                    merchant=description,
+                    merchant_id=merchant_id,
+                    merchant_canonical_name=canon,
                     extra={
                         "account_number": account_number,
                         "original_amount": aligned_original_amount_for_store(
@@ -136,11 +122,6 @@ class ScrapeIsracardUseCase:
                         "extended_details": txn.get("extendedDetails"),
                     },
                 )
-                if charged_amount >= 0:
-                    for rule in sharing_rules:
-                        _apply_sharing_rule(payment, rule)
-                        if payment.shared_payment is not None:
-                            break
 
                 payments.append(payment)
 

@@ -3,15 +3,31 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from caspi.application.payments.aggregate_summary import aggregate_payment_summary
 from caspi.application.payments.response_mapper import domain_payment_to_response
-from caspi.infrastructure.repositories.merchant_alias_repository import SqlMerchantAliasRepository
-from caspi.infrastructure.repositories.merchant_tag_repository import SqlMerchantTagRepository
+from caspi.infrastructure.models import TagModel
+from caspi.infrastructure.repositories.merchant_repository import SqlMerchantRepository
 from caspi.infrastructure.repositories.payment_mapper import payment_model_to_domain
 from caspi.infrastructure.repositories.payment_query_repository import SqlPaymentQueryRepository
 from caspi.interfaces.schemas.payments import PaymentListCursor, PaymentListPageResponse, PaymentResponse
+
+
+async def _tag_name_by_id(db: AsyncSession, ids: set[str]) -> dict[str, str]:
+    if not ids:
+        return {}
+    uuids = []
+    for s in ids:
+        try:
+            uuids.append(UUID(s))
+        except ValueError:
+            continue
+    if not uuids:
+        return {}
+    result = await db.execute(select(TagModel).where(TagModel.id.in_(uuids)))
+    return {str(t.id): t.name for t in result.scalars().all()}
 
 
 async def list_payment_responses(
@@ -25,11 +41,9 @@ async def list_payment_responses(
     amount_max: Optional[Decimal] = None,
     tagged_only: Optional[bool] = None,
 ) -> list[PaymentResponse]:
-    alias_repo = SqlMerchantAliasRepository(db)
-    tag_repo = SqlMerchantTagRepository(db)
+    merchant_repo = SqlMerchantRepository(db)
+    merchant_tag_map = await merchant_repo.load_tag_ids_by_merchant()
     query_repo = SqlPaymentQueryRepository(db)
-    aliases = await alias_repo.load_all_map()
-    merchant_tags_map = await tag_repo.load_all_map()
     models = await query_repo.fetch_filtered_models(
         include_tags=include_tags,
         exclude_tags=exclude_tags,
@@ -39,10 +53,19 @@ async def list_payment_responses(
         amount_max=amount_max,
         tagged_only=tagged_only,
     )
-    return [
-        domain_payment_to_response(payment_model_to_domain(m), aliases, merchant_tags_map)
-        for m in models
-    ]
+    out: list[PaymentResponse] = []
+    for m in models:
+        p = payment_model_to_domain(m)
+        alias = m.merchant.alias if m.merchant is not None else None
+        mt = merchant_tag_map.get(m.merchant_id, [])
+        out.append(
+            domain_payment_to_response(
+                p,
+                merchant_alias=alias,
+                merchant_tag_ids=mt,
+            )
+        )
+    return out
 
 
 async def list_payments_page(
@@ -60,11 +83,9 @@ async def list_payments_page(
     after_date: Optional[date] = None,
     after_payment_id: Optional[UUID] = None,
 ) -> PaymentListPageResponse:
-    alias_repo = SqlMerchantAliasRepository(db)
-    tag_repo = SqlMerchantTagRepository(db)
+    merchant_repo = SqlMerchantRepository(db)
+    merchant_tag_map = await merchant_repo.load_tag_ids_by_merchant()
     query_repo = SqlPaymentQueryRepository(db)
-    aliases = await alias_repo.load_all_map()
-    merchant_tags_map = await tag_repo.load_all_map()
     models = await query_repo.fetch_filtered_models(
         include_tags=include_tags,
         exclude_tags=exclude_tags,
@@ -78,10 +99,18 @@ async def list_payments_page(
         after_date=after_date,
         after_payment_id=after_payment_id,
     )
-    items = [
-        domain_payment_to_response(payment_model_to_domain(m), aliases, merchant_tags_map)
-        for m in models
-    ]
+    items: list[PaymentResponse] = []
+    for m in models:
+        p = payment_model_to_domain(m)
+        alias = m.merchant.alias if m.merchant is not None else None
+        mt = merchant_tag_map.get(m.merchant_id, [])
+        items.append(
+            domain_payment_to_response(
+                p,
+                merchant_alias=alias,
+                merchant_tag_ids=mt,
+            )
+        )
     next_cursor: Optional[PaymentListCursor] = None
     if len(items) == limit:
         last = items[-1]
@@ -110,4 +139,9 @@ async def payment_summary_for_filters(
         amount_max=amount_max,
         tagged_only=tagged_only,
     )
-    return aggregate_payment_summary(responses)
+    ids: set[str] = set()
+    for r in responses:
+        ids.update(r.payment_tags)
+        ids.update(r.merchant_tags)
+    tag_name_by_id = await _tag_name_by_id(db, ids)
+    return aggregate_payment_summary(responses, tag_name_by_id=tag_name_by_id)

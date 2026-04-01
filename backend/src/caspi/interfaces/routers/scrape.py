@@ -19,7 +19,11 @@ from caspi.application.bulk_scrape_isracard import (
 from caspi.application.scrape_isracard import ScrapeIsracardRequest, ScrapeIsracardUseCase
 from caspi.domain.value_objects import ImportId
 from caspi.infrastructure.database import get_db
-from caspi.infrastructure.repositories import SqlImportBatchRepository, SqlPaymentRepository, SqlSharingRuleRepository
+from caspi.infrastructure.repositories import (
+    SqlImportBatchRepository,
+    SqlMerchantRepository,
+    SqlPaymentRepository,
+)
 from caspi.settings import settings
 
 router = APIRouter(prefix="/api/scrape", tags=["scrape"])
@@ -46,12 +50,12 @@ class ScrapeIsracardResponse(BaseModel):
 
 class PaymentItem(BaseModel):
     payment_id: str
+    merchant_id: str
     date: date
     description: str
     amount: Decimal
     currency: str
     effective_amount: Decimal
-    merchant: str | None
     payment_type: str
     extra: dict
 
@@ -62,7 +66,7 @@ async def scrape_isracard(start_date: date | None = None, db: AsyncSession = Dep
         scraper_url=settings.scraper_url,
         payment_repo=SqlPaymentRepository(db),
         import_batch_repo=SqlImportBatchRepository(db),
-        sharing_rule_repo=SqlSharingRuleRepository(db),
+        merchant_repo=SqlMerchantRepository(db),
     )
     try:
         result = await use_case.execute(
@@ -157,12 +161,12 @@ async def get_scrape_results(import_id: str, db: AsyncSession = Depends(get_db))
     return [
         PaymentItem(
             payment_id=str(p.payment_id.value),
+            merchant_id=str(p.merchant_id.value),
             date=p.date,
             description=p.description,
             amount=p.amount.amount,
             currency=p.amount.currency,
             effective_amount=p.effective_amount.amount,
-            merchant=p.merchant,
             payment_type=p.payment_type.value,
             extra=p.extra,
         )

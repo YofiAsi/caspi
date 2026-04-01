@@ -3,8 +3,8 @@ from decimal import Decimal
 from datetime import date
 
 from caspi.domain.entities.payment import Payment
-from caspi.domain.value_objects.enums import PaymentSource, PaymentType
-from caspi.domain.value_objects.ids import ImportId, PaymentId
+from caspi.domain.value_objects.enums import PaymentSource
+from caspi.domain.value_objects.ids import ImportId, MerchantId, PaymentId
 from caspi.domain.value_objects.money import Money
 from caspi.domain.value_objects.shared_payment import SharedPayment
 
@@ -17,6 +17,8 @@ def _make_payment(amount: str = "100.00", shared: SharedPayment | None = None) -
         description="Test payment",
         source=PaymentSource.ISRACARD,
         import_id=ImportId(),
+        merchant_id=MerchantId(),
+        merchant_canonical_name="test",
         shared_payment=shared,
     )
 
