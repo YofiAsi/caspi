@@ -8,13 +8,13 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - app
 
   backend:
     build:
@@ -27,16 +27,13 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       SCRAPER_URL: ${SCRAPER_URL}
       ENVIRONMENT: production
-    ports:
-      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
       scraper:
         condition: service_started
-    volumes:
-      - ./backend/src:/app/src
-      - ./backend/alembic:/app/alembic
+    networks:
+      - app
 
   scraper:
     build:
@@ -45,16 +42,28 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3001
+    networks:
+      - app
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     depends_on:
       - backend
+    networks:
+      - app
+      - coolify
 
 volumes:
   postgres_data:
+
+networks:
+  app:
+    driver: bridge
+  coolify:
+    external: true
+    name: coolify
