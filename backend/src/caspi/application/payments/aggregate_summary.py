@@ -14,7 +14,15 @@ from caspi.interfaces.schemas.payments import (
 )
 
 
-def aggregate_payment_summary(responses: list[PaymentResponse]) -> PaymentSummaryResponse:
+def _merged_tag_ids(r: PaymentResponse) -> set[str]:
+    return set(r.payment_tags) | set(r.merchant_tags)
+
+
+def aggregate_payment_summary(
+    responses: list[PaymentResponse],
+    *,
+    tag_name_by_id: dict[str, str],
+) -> PaymentSummaryResponse:
     if not responses:
         return PaymentSummaryResponse(
             payment_count=0,
@@ -44,9 +52,11 @@ def aggregate_payment_summary(responses: list[PaymentResponse]) -> PaymentSummar
         totals_eff[c] += r.effective_amount
         totals_amt[c] += r.amount
 
-        if r.tags:
-            for tag in r.tags:
-                k = (tag, c)
+        merged = _merged_tag_ids(r)
+        if merged:
+            for tid in merged:
+                label = tag_name_by_id.get(tid, tid)
+                k = (tid, c)
                 tag_sum[k] += r.effective_amount
                 tag_pay_count[k] += 1
         else:
@@ -74,12 +84,13 @@ def aggregate_payment_summary(responses: list[PaymentResponse]) -> PaymentSummar
     by_tag_rows = sorted(
         (
             TagSummaryRow(
-                tag=tag,
+                tag_id=tid,
+                tag=tag_name_by_id.get(tid, tid),
                 currency=cur,
-                sum_effective=tag_sum[(tag, cur)],
-                payment_count=tag_pay_count[(tag, cur)],
+                sum_effective=tag_sum[(tid, cur)],
+                payment_count=tag_pay_count[(tid, cur)],
             )
-            for tag, cur in tag_sum.keys()
+            for tid, cur in tag_sum.keys()
         ),
         key=lambda row: (-row.sum_effective, row.tag),
     )

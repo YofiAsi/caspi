@@ -19,10 +19,10 @@ class CategorizationResult:
 
 class CategorizationService:
     def categorize(self, payment: Payment, rules: list[MerchantRule]) -> CategorizationResult:
-        if payment.merchant is None:
+        key = normalize_merchant(payment.merchant_canonical_name)
+        if not key:
             return CategorizationResult(category_id=None, is_auto=False, rule=None)
 
-        key = normalize_merchant(payment.merchant)
         rule = next((r for r in rules if r.merchant_key == key), None)
 
         if rule is None:

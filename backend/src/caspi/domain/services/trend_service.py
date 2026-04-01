@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
+from uuid import UUID
 
 from caspi.domain.entities.payment import Payment
 from caspi.domain.value_objects.money import Money
-from caspi.domain.value_objects.tag import Tag
 
 
 @dataclass
@@ -21,9 +21,9 @@ class TrendService:
     def monthly_trend(
         self,
         payments: list[Payment],
-        tag: Tag | None = None,
+        tag_id: UUID | None = None,
     ) -> list[MonthlyTrend]:
-        filtered = payments if tag is None else [p for p in payments if tag in p.tags]
+        filtered = payments if tag_id is None else [p for p in payments if tag_id in p.payment_tag_ids]
 
         currency = filtered[0].effective_amount.currency if filtered else "ILS"
         buckets: dict[tuple[int, int], Money] = {}

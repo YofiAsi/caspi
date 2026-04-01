@@ -11,8 +11,8 @@ from caspi.application.scrape_isracard import ScrapeIsracardRequest, ScrapeIsrac
 from caspi.infrastructure.database import async_session as default_session_factory
 from caspi.infrastructure.repositories import (
     SqlImportBatchRepository,
+    SqlMerchantRepository,
     SqlPaymentRepository,
-    SqlSharingRuleRepository,
 )
 
 
@@ -116,7 +116,7 @@ class BulkScrapeIsracardUseCase:
                             scraper_url=self._scraper_url,
                             payment_repo=SqlPaymentRepository(session),
                             import_batch_repo=SqlImportBatchRepository(session),
-                            sharing_rule_repo=SqlSharingRuleRepository(session),
+                            merchant_repo=SqlMerchantRepository(session),
                         )
                         result = await use_case.execute(
                             ScrapeIsracardRequest(

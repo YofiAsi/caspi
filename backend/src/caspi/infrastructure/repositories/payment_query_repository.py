@@ -3,11 +3,17 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import String, and_, cast, func, literal, not_, or_, select
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import and_, exists, func, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload, selectinload
 
-from caspi.infrastructure.models import MerchantAliasModel, MerchantTagModel, PaymentModel
+from caspi.infrastructure.models import (
+    MerchantModel,
+    MerchantTagLinkModel,
+    PaymentModel,
+    PaymentTagModel,
+    TagModel,
+)
 
 
 def _escape_ilike_pattern(fragment: str) -> str:
@@ -24,9 +30,28 @@ def _search_tokens(search_q: Optional[str]) -> list[str]:
     return [t for t in str(search_q).split() if t]
 
 
+def _parse_tag_uuids(raw: Optional[list[str]]) -> list[UUID]:
+    if not raw:
+        return []
+    out: list[UUID] = []
+    for s in raw:
+        try:
+            out.append(UUID(str(s)))
+        except ValueError:
+            continue
+    return out
+
+
 class SqlPaymentQueryRepository:
     def __init__(self, session: AsyncSession):
         self._session = session
+
+    def _load_opts(self):
+        return (
+            joinedload(PaymentModel.merchant),
+            selectinload(PaymentModel.payment_tags),
+            selectinload(PaymentModel.payment_collections),
+        )
 
     async def fetch_filtered_models(
         self,
@@ -43,41 +68,40 @@ class SqlPaymentQueryRepository:
         after_date: Optional[date] = None,
         after_payment_id: Optional[UUID] = None,
     ) -> list[PaymentModel]:
-        merchant_key_expr = func.coalesce(PaymentModel.merchant, PaymentModel.description)
-        stmt = (
-            select(PaymentModel)
-            .outerjoin(
-                MerchantTagModel,
-                MerchantTagModel.merchant_key == merchant_key_expr,
-            )
-            .outerjoin(
-                MerchantAliasModel,
-                MerchantAliasModel.original_merchant == merchant_key_expr,
-            )
-        )
+        stmt = select(PaymentModel).outerjoin(MerchantModel, MerchantModel.id == PaymentModel.merchant_id)
         conditions = []
 
-        if include_tags:
-            normalized_include = [t.strip().lower() for t in include_tags if t.strip()]
-            for tag in normalized_include:
-                conditions.append(
-                    or_(
-                        PaymentModel.tags.contains([tag]),
-                        MerchantTagModel.tags.contains([tag]),
-                    )
+        include_ids = _parse_tag_uuids(include_tags)
+        for tid in include_ids:
+            pt = exists(
+                select(1).where(
+                    PaymentTagModel.payment_id == PaymentModel.payment_id,
+                    PaymentTagModel.tag_id == tid,
                 )
+            )
+            mt = exists(
+                select(1).where(
+                    MerchantTagLinkModel.merchant_id == PaymentModel.merchant_id,
+                    MerchantTagLinkModel.tag_id == tid,
+                )
+            )
+            conditions.append(or_(pt, mt))
 
-        if exclude_tags:
-            normalized_exclude = [t.strip().lower() for t in exclude_tags if t.strip()]
-            for tag in normalized_exclude:
-                conditions.append(
-                    not_(
-                        or_(
-                            PaymentModel.tags.contains([tag]),
-                            MerchantTagModel.tags.contains([tag]),
-                        )
-                    )
+        exclude_ids = _parse_tag_uuids(exclude_tags)
+        for tid in exclude_ids:
+            pt = exists(
+                select(1).where(
+                    PaymentTagModel.payment_id == PaymentModel.payment_id,
+                    PaymentTagModel.tag_id == tid,
                 )
+            )
+            mt = exists(
+                select(1).where(
+                    MerchantTagLinkModel.merchant_id == PaymentModel.merchant_id,
+                    MerchantTagLinkModel.tag_id == tid,
+                )
+            )
+            conditions.append(not_(or_(pt, mt)))
 
         if date_from is not None:
             conditions.append(PaymentModel.date >= date_from)
@@ -90,34 +114,40 @@ class SqlPaymentQueryRepository:
             conditions.append(PaymentModel.amount <= amount_max)
 
         if tagged_only:
-            empty_jsonb = cast(literal("[]"), JSONB)
-            merchant_tags_col = func.coalesce(MerchantTagModel.tags, empty_jsonb)
-            conditions.append(
-                or_(
-                    func.jsonb_array_length(PaymentModel.tags) > 0,
-                    func.jsonb_array_length(merchant_tags_col) > 0,
-                )
+            pt_any = exists(select(1).where(PaymentTagModel.payment_id == PaymentModel.payment_id))
+            mt_any = exists(
+                select(1).where(MerchantTagLinkModel.merchant_id == PaymentModel.merchant_id)
             )
+            conditions.append(or_(pt_any, mt_any))
 
         tokens = _search_tokens(search_q)
-        if tokens:
-            empty_jsonb_tags = cast(literal("[]"), JSONB)
-            merchant_tags_text = cast(
-                func.coalesce(MerchantTagModel.tags, empty_jsonb_tags),
-                String,
-            )
-            payment_tags_text = cast(PaymentModel.tags, String)
-            for token in tokens:
-                pat = f"%{_escape_ilike_pattern(token)}%"
-                conditions.append(
-                    or_(
-                        PaymentModel.description.ilike(pat, escape="\\"),
-                        func.coalesce(PaymentModel.merchant, "").ilike(pat, escape="\\"),
-                        MerchantAliasModel.alias.ilike(pat, escape="\\"),
-                        payment_tags_text.ilike(pat, escape="\\"),
-                        merchant_tags_text.ilike(pat, escape="\\"),
-                    )
+        for token in tokens:
+            pat = f"%{_escape_ilike_pattern(token)}%"
+            conditions.append(
+                or_(
+                    PaymentModel.description.ilike(pat, escape="\\"),
+                    MerchantModel.canonical_name.ilike(pat, escape="\\"),
+                    func.coalesce(MerchantModel.alias, "").ilike(pat, escape="\\"),
+                    exists(
+                        select(1)
+                        .select_from(PaymentTagModel)
+                        .join(TagModel, TagModel.id == PaymentTagModel.tag_id)
+                        .where(
+                            PaymentTagModel.payment_id == PaymentModel.payment_id,
+                            TagModel.name.ilike(pat, escape="\\"),
+                        )
+                    ),
+                    exists(
+                        select(1)
+                        .select_from(MerchantTagLinkModel)
+                        .join(TagModel, TagModel.id == MerchantTagLinkModel.tag_id)
+                        .where(
+                            MerchantTagLinkModel.merchant_id == PaymentModel.merchant_id,
+                            TagModel.name.ilike(pat, escape="\\"),
+                        )
+                    ),
                 )
+            )
 
         if conditions:
             stmt = stmt.where(and_(*conditions))
@@ -130,9 +160,9 @@ class SqlPaymentQueryRepository:
                 )
             )
 
-        stmt = stmt.order_by(PaymentModel.date.desc(), PaymentModel.payment_id.desc())
+        stmt = stmt.order_by(PaymentModel.date.desc(), PaymentModel.payment_id.desc()).options(*self._load_opts())
         if limit is not None:
             stmt = stmt.limit(limit)
 
         result = await self._session.execute(stmt)
-        return list(result.scalars().all())
+        return list(result.unique().scalars().all())
