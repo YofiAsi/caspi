@@ -11,6 +11,7 @@ interface Props {
   scrollRoot: HTMLDivElement | null
   selectedPaymentIds: Set<string>
   onSelectionChange: (payments: Payment[]) => void
+  onTopVisibleYearChange?: (year: number | null) => void
 }
 
 export function PaymentList({
@@ -18,6 +19,7 @@ export function PaymentList({
   scrollRoot,
   selectedPaymentIds,
   onSelectionChange,
+  onTopVisibleYearChange,
 }: Props) {
   const {
     data,
@@ -44,6 +46,75 @@ export function PaymentList({
 
   const lastClickedId = useRef<string | null>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const lastEmittedYear = useRef<number | null | undefined>(undefined)
+  const rafScrollId = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!onTopVisibleYearChange) return
+    if (isPending || isError || payments.length === 0) {
+      lastEmittedYear.current = undefined
+      onTopVisibleYearChange(null)
+    }
+  }, [onTopVisibleYearChange, isPending, isError, payments.length])
+
+  useEffect(() => {
+    if (!onTopVisibleYearChange || !scrollRoot || isPending || isError || payments.length === 0) {
+      return
+    }
+
+    const emit = (year: number | null) => {
+      if (lastEmittedYear.current === year) return
+      lastEmittedYear.current = year
+      onTopVisibleYearChange(year)
+    }
+
+    const computeTopVisibleYear = (): number | null => {
+      const rows = scrollRoot.querySelectorAll('[data-payment-year]')
+      if (!rows.length) return null
+      const rootRect = scrollRoot.getBoundingClientRect()
+      const topEdge = rootRect.top + 1
+      for (const el of rows) {
+        const rect = el.getBoundingClientRect()
+        if (rect.bottom > topEdge) {
+          const raw = el.getAttribute('data-payment-year')
+          if (raw == null) return null
+          const y = parseInt(raw, 10)
+          return Number.isFinite(y) ? y : null
+        }
+      }
+      return null
+    }
+
+    const run = () => {
+      emit(computeTopVisibleYear())
+    }
+
+    const schedule = () => {
+      if (rafScrollId.current != null) return
+      rafScrollId.current = window.requestAnimationFrame(() => {
+        rafScrollId.current = null
+        run()
+      })
+    }
+
+    run()
+    scrollRoot.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule)
+    return () => {
+      scrollRoot.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+      if (rafScrollId.current != null) {
+        window.cancelAnimationFrame(rafScrollId.current)
+        rafScrollId.current = null
+      }
+    }
+  }, [
+    onTopVisibleYearChange,
+    scrollRoot,
+    isPending,
+    isError,
+    payments,
+  ])
 
   useEffect(() => {
     const root = scrollRoot
@@ -131,12 +202,16 @@ export function PaymentList({
   return (
     <div className="divide-y divide-border-subtle">
       {payments.map((payment) => (
-        <PaymentCard
+        <div
           key={payment.payment_id}
-          payment={payment}
-          onClick={(e) => handleCardClick(payment, e)}
-          isSelected={selectedPaymentIds.has(payment.payment_id)}
-        />
+          data-payment-year={parseInt(payment.date.slice(0, 4), 10)}
+        >
+          <PaymentCard
+            payment={payment}
+            onClick={(e) => handleCardClick(payment, e)}
+            isSelected={selectedPaymentIds.has(payment.payment_id)}
+          />
+        </div>
       ))}
       <div ref={sentinelRef} className="h-1 w-full" aria-hidden />
       {isFetchingNextPage ? (
