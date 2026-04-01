@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, Outlet } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTheme } from 'next-themes'
 import { logoutAndRefresh, type AuthContext } from './AuthGate'
@@ -184,17 +184,6 @@ export function AppLayout({ auth }: { auth: AuthContext }) {
                 </div>
               </div>
               <nav className="flex flex-col p-2 gap-1">
-                <NavLink
-                  to="/analysis"
-                  onClick={() => setOptionsOpen(false)}
-                  className={({ isActive }) =>
-                    `px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                      isActive ? 'bg-accent-nav text-accent-nav-fg' : 'text-fg-secondary hover:bg-hover-surface'
-                    }`
-                  }
-                >
-                  Analysis
-                </NavLink>
                 {auth.authRequired && auth.email ? (
                   <button
                     type="button"
