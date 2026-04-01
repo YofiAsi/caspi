@@ -63,30 +63,24 @@ function fnv1a32(str: string): number {
   return h >>> 0
 }
 
-export function normalizeTag(tag: string): string {
-  return tag.trim().toLowerCase()
-}
-
 function paletteFor(variant: TagColorVariant) {
   return variant === 'dark' ? PALETTE_DARK : PALETTE_LIGHT
 }
 
-export function getTagChipStyle(
-  tag: string,
+export function getTagChipStyleById(
+  tagId: string,
   variant: TagColorVariant = 'light',
 ): { backgroundColor: string; color: string } {
-  const n = normalizeTag(tag)
-  if (!n) {
+  if (!tagId) {
     return variant === 'dark'
       ? { backgroundColor: 'rgb(39 39 42 / 0.9)', color: '#a1a1aa' }
       : { backgroundColor: '#f1f5f9', color: '#475569' }
   }
-  const pair = paletteFor(variant)[fnv1a32(n) % PALETTE_LIGHT.length]
+  const pair = paletteFor(variant)[fnv1a32(tagId) % PALETTE_LIGHT.length]
   return { backgroundColor: pair.bg, color: pair.fg }
 }
 
-export function getTagAccentColor(tag: string, variant: TagColorVariant = 'light'): string {
-  const n = normalizeTag(tag)
-  if (!n) return variant === 'dark' ? '#a1a1aa' : '#64748b'
-  return paletteFor(variant)[fnv1a32(n) % PALETTE_LIGHT.length].fg
+export function getTagAccentColorById(tagId: string, variant: TagColorVariant = 'light'): string {
+  if (!tagId) return variant === 'dark' ? '#a1a1aa' : '#64748b'
+  return paletteFor(variant)[fnv1a32(tagId) % PALETTE_LIGHT.length].fg
 }

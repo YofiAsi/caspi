@@ -5,11 +5,16 @@ import { TagChip } from './TagChip'
 
 interface Props {
   payment: Payment
+  tagLabels: Map<string, string>
   onClick: (event: React.MouseEvent) => void
   isSelected?: boolean
 }
 
-export function PaymentCard({ payment, onClick, isSelected }: Props) {
+function mergedTagIds(p: Payment): string[] {
+  return [...new Set([...p.payment_tags, ...p.merchant_tags])]
+}
+
+export function PaymentCard({ payment, tagLabels, onClick, isSelected }: Props) {
   const formattedDate = new Date(payment.date).toLocaleDateString('en-GB', {
     day: '2-digit',
     month: 'short',
@@ -20,6 +25,9 @@ export function PaymentCard({ payment, onClick, isSelected }: Props) {
   const isShared = payment.share_amount !== null
   const showOriginal = paymentShowsOriginalCurrency(payment)
   const { extra } = payment
+
+  const tagIds = mergedTagIds(payment)
+  const label = (id: string) => tagLabels.get(id) ?? `${id.slice(0, 8)}…`
 
   return (
     <div
@@ -41,10 +49,10 @@ export function PaymentCard({ payment, onClick, isSelected }: Props) {
           <p className="text-sm font-medium text-fg truncate">
             {payment.display_name}
           </p>
-          {payment.tags.length > 0 && (
+          {tagIds.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
-              {payment.tags.map((tag) => (
-                <TagChip key={tag} tag={tag} className="px-1.5 py-0 text-xs" />
+              {tagIds.map((tid) => (
+                <TagChip key={tid} tagId={tid} label={label(tid)} className="px-1.5 py-0 text-xs" />
               ))}
             </div>
           )}
