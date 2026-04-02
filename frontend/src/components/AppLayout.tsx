@@ -11,7 +11,13 @@ function getFullscreenElement(): Element | null {
 const TITLE_MAP: Record<string, string> = {
   '/': 'Caspi',
   '/analysis': 'Breakdown',
+  '/collections': 'Collections',
   '/settings': 'Settings',
+}
+
+function headerTitle(pathname: string): string {
+  if (pathname.startsWith('/collections/')) return 'Collection'
+  return TITLE_MAP[pathname] ?? 'Caspi'
 }
 
 export function AppLayout({ auth: _auth }: { auth: AuthContext }) {
@@ -104,7 +110,7 @@ export function AppLayout({ auth: _auth }: { auth: AuthContext }) {
         >
           <img src="/favicon.png" alt="" className="h-8 w-8 shrink-0 object-contain" aria-hidden />
           <span className="truncate">
-            {TITLE_MAP[pathname] ?? 'Caspi'}
+            {headerTitle(pathname)}
           </span>
         </Link>
         <div className="flex items-center gap-2">

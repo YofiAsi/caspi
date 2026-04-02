@@ -1,5 +1,6 @@
 import type {
   CollectionItem,
+  CollectionTimeseriesResponse,
   MonthTagSlicesResponse,
   PatchPaymentBody,
   Payment,
@@ -61,6 +62,23 @@ function appendPaymentFilters(params: URLSearchParams, filters?: PaymentFilters)
   }
   if (filters?.includeTotals) {
     params.set('include_totals', 'true')
+  }
+  if (filters?.collectionId) {
+    params.set('collection_id', filters.collectionId)
+  }
+  if (filters?.applyTagCombo) {
+    params.set('apply_tag_combo', 'true')
+    const ids = filters.mergedTagIds ?? []
+    for (const id of [...ids].sort()) {
+      params.append('merged_tag_ids', id)
+    }
+  }
+  if (filters?.applyTagComboOther) {
+    params.set('apply_tag_combo_other', 'true')
+    const ex = filters.tagComboExcludes ?? []
+    for (const combo of ex) {
+      params.append('tag_combo_exclude', combo.length ? [...combo].sort().join(',') : '')
+    }
   }
 }
 
@@ -139,6 +157,13 @@ export const api = {
     list: (): Promise<CollectionItem[]> => request('/collections'),
     create: (name: string): Promise<CollectionItem> =>
       request('/collections', { method: 'POST', body: JSON.stringify({ name }) }),
+    tagSlices: (collectionId: string): Promise<MonthTagSlicesResponse> =>
+      request(`/collections/${collectionId}/tag-slices`),
+    timeseries: (
+      collectionId: string,
+      granularity: 'daily' | 'weekly' | 'monthly',
+    ): Promise<CollectionTimeseriesResponse> =>
+      request(`/collections/${collectionId}/timeseries?granularity=${granularity}`),
   },
   auth: {
     logout: (): Promise<void> =>
