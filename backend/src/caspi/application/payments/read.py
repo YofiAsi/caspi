@@ -1,3 +1,4 @@
+from calendar import monthrange
 from datetime import date
 from decimal import Decimal
 from typing import Optional
@@ -6,13 +7,20 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from caspi.application.payments.aggregate_month_tag_slices import aggregate_month_tag_slices
 from caspi.application.payments.aggregate_summary import aggregate_payment_summary
 from caspi.application.payments.response_mapper import domain_payment_to_response
 from caspi.infrastructure.models import TagModel
 from caspi.infrastructure.repositories.merchant_repository import SqlMerchantRepository
 from caspi.infrastructure.repositories.payment_mapper import payment_model_to_domain
 from caspi.infrastructure.repositories.payment_query_repository import SqlPaymentQueryRepository
-from caspi.interfaces.schemas.payments import PaymentListCursor, PaymentListPageResponse, PaymentResponse
+from caspi.interfaces.schemas.payments import (
+    ListFilterTotals,
+    MonthTagSlicesResponse,
+    PaymentListCursor,
+    PaymentListPageResponse,
+    PaymentResponse,
+)
 
 
 async def _tag_name_by_id(db: AsyncSession, ids: set[str]) -> dict[str, str]:
@@ -30,6 +38,10 @@ async def _tag_name_by_id(db: AsyncSession, ids: set[str]) -> dict[str, str]:
     return {str(t.id): t.name for t in result.scalars().all()}
 
 
+def _merchant_sort_key_response(r: PaymentResponse) -> str:
+    return (r.display_name or "").strip().lower()
+
+
 async def list_payment_responses(
     db: AsyncSession,
     *,
@@ -40,6 +52,10 @@ async def list_payment_responses(
     amount_min: Optional[Decimal] = None,
     amount_max: Optional[Decimal] = None,
     tagged_only: Optional[bool] = None,
+    currency: Optional[str] = None,
+    apply_tag_slice: bool = False,
+    filter_tag_id: Optional[UUID] = None,
+    other_tag_ids: Optional[list[UUID]] = None,
 ) -> list[PaymentResponse]:
     merchant_repo = SqlMerchantRepository(db)
     merchant_tag_map = await merchant_repo.load_tag_ids_by_merchant()
@@ -52,6 +68,10 @@ async def list_payment_responses(
         amount_min=amount_min,
         amount_max=amount_max,
         tagged_only=tagged_only,
+        currency=currency,
+        apply_tag_slice=apply_tag_slice,
+        filter_tag_id=filter_tag_id,
+        other_tag_ids=other_tag_ids,
     )
     out: list[PaymentResponse] = []
     for m in models:
@@ -79,13 +99,40 @@ async def list_payments_page(
     amount_max: Optional[Decimal] = None,
     tagged_only: Optional[bool] = None,
     search_q: Optional[str] = None,
+    currency: Optional[str] = None,
+    apply_tag_slice: bool = False,
+    filter_tag_id: Optional[UUID] = None,
+    other_tag_ids: Optional[list[UUID]] = None,
+    sort: Optional[str] = None,
     limit: int = 50,
     after_date: Optional[date] = None,
     after_payment_id: Optional[UUID] = None,
+    after_effective_amount: Optional[Decimal] = None,
+    after_merchant_key: Optional[str] = None,
+    include_totals: bool = False,
 ) -> PaymentListPageResponse:
     merchant_repo = SqlMerchantRepository(db)
     merchant_tag_map = await merchant_repo.load_tag_ids_by_merchant()
     query_repo = SqlPaymentQueryRepository(db)
+
+    filter_totals: Optional[ListFilterTotals] = None
+    if include_totals:
+        cnt, ssum = await query_repo.count_and_sum_effective(
+            include_tags=include_tags,
+            exclude_tags=exclude_tags,
+            date_from=date_from,
+            date_to=date_to,
+            amount_min=amount_min,
+            amount_max=amount_max,
+            tagged_only=tagged_only,
+            search_q=search_q,
+            currency=currency,
+            apply_tag_slice=apply_tag_slice,
+            filter_tag_id=filter_tag_id,
+            other_tag_ids=other_tag_ids,
+        )
+        filter_totals = ListFilterTotals(payment_count=cnt, sum_effective=ssum)
+
     models = await query_repo.fetch_filtered_models(
         include_tags=include_tags,
         exclude_tags=exclude_tags,
@@ -95,9 +142,16 @@ async def list_payments_page(
         amount_max=amount_max,
         tagged_only=tagged_only,
         search_q=search_q,
+        currency=currency,
+        apply_tag_slice=apply_tag_slice,
+        filter_tag_id=filter_tag_id,
+        other_tag_ids=other_tag_ids,
+        sort=sort,
         limit=limit,
         after_date=after_date,
         after_payment_id=after_payment_id,
+        after_effective_amount=after_effective_amount,
+        after_merchant_key=after_merchant_key,
     )
     items: list[PaymentResponse] = []
     for m in models:
@@ -114,8 +168,13 @@ async def list_payments_page(
     next_cursor: Optional[PaymentListCursor] = None
     if len(items) == limit:
         last = items[-1]
-        next_cursor = PaymentListCursor(date=last.date, payment_id=last.payment_id)
-    return PaymentListPageResponse(items=items, next_cursor=next_cursor)
+        next_cursor = PaymentListCursor(
+            date=last.date,
+            payment_id=last.payment_id,
+            effective_amount=last.effective_amount,
+            merchant_sort_key=_merchant_sort_key_response(last),
+        )
+    return PaymentListPageResponse(items=items, next_cursor=next_cursor, filter_totals=filter_totals)
 
 
 async def payment_summary_for_filters(
@@ -145,3 +204,34 @@ async def payment_summary_for_filters(
         ids.update(r.merchant_tags)
     tag_name_by_id = await _tag_name_by_id(db, ids)
     return aggregate_payment_summary(responses, tag_name_by_id=tag_name_by_id)
+
+
+async def month_tag_slices_for_month(
+    db: AsyncSession,
+    *,
+    year: int,
+    month: int,
+    filter_tag_id: str,
+) -> MonthTagSlicesResponse:
+    ft = UUID(filter_tag_id)
+    last_d = monthrange(year, month)[1]
+    date_from = date(year, month, 1)
+    date_to = date(year, month, last_d)
+    responses = await list_payment_responses(
+        db,
+        include_tags=[filter_tag_id],
+        date_from=date_from,
+        date_to=date_to,
+        currency="ILS",
+    )
+    ids: set[str] = {filter_tag_id}
+    for r in responses:
+        ids.update(r.payment_tags)
+        ids.update(r.merchant_tags)
+    tag_name_by_id = await _tag_name_by_id(db, ids)
+    return aggregate_month_tag_slices(
+        responses,
+        filter_tag_id=filter_tag_id,
+        tag_name_by_id=tag_name_by_id,
+        currency="ILS",
+    )

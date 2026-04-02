@@ -1,9 +1,10 @@
 from datetime import date
 from decimal import Decimal
+from enum import Enum
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import and_, exists, func, not_, or_, select
+from sqlalchemy import and_, exists, func, not_, or_, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -14,6 +15,15 @@ from caspi.infrastructure.models import (
     PaymentTagModel,
     TagModel,
 )
+
+
+class PaymentListSort(str, Enum):
+    date_desc = "date_desc"
+    date_asc = "date_asc"
+    amount_desc = "amount_desc"
+    amount_asc = "amount_asc"
+    merchant_asc = "merchant_asc"
+    merchant_desc = "merchant_desc"
 
 
 def _escape_ilike_pattern(fragment: str) -> str:
@@ -42,6 +52,24 @@ def _parse_tag_uuids(raw: Optional[list[str]]) -> list[UUID]:
     return out
 
 
+def _effective_amount_expr():
+    return func.coalesce(PaymentModel.share_amount, PaymentModel.amount)
+
+
+def _merchant_sort_key_expr():
+    trimmed = func.nullif(func.trim(func.coalesce(MerchantModel.alias, "")), "")
+    return func.lower(func.coalesce(trimmed, MerchantModel.canonical_name))
+
+
+def _parse_sort(raw: Optional[str]) -> PaymentListSort:
+    if not raw:
+        return PaymentListSort.date_desc
+    try:
+        return PaymentListSort(raw)
+    except ValueError:
+        return PaymentListSort.date_desc
+
+
 class SqlPaymentQueryRepository:
     def __init__(self, session: AsyncSession):
         self._session = session
@@ -53,7 +81,7 @@ class SqlPaymentQueryRepository:
             selectinload(PaymentModel.payment_collections),
         )
 
-    async def fetch_filtered_models(
+    def _base_conditions(
         self,
         *,
         include_tags: Optional[list[str]],
@@ -62,13 +90,13 @@ class SqlPaymentQueryRepository:
         date_to: Optional[date],
         amount_min: Optional[Decimal],
         amount_max: Optional[Decimal],
-        tagged_only: Optional[bool] = None,
-        search_q: Optional[str] = None,
-        limit: Optional[int] = None,
-        after_date: Optional[date] = None,
-        after_payment_id: Optional[UUID] = None,
-    ) -> list[PaymentModel]:
-        stmt = select(PaymentModel).outerjoin(MerchantModel, MerchantModel.id == PaymentModel.merchant_id)
+        tagged_only: Optional[bool],
+        search_q: Optional[str],
+        currency: Optional[str],
+        filter_tag_id: Optional[UUID],
+        other_tag_ids: Optional[list[UUID]],
+        apply_tag_slice: bool,
+    ) -> list:
         conditions = []
 
         include_ids = _parse_tag_uuids(include_tags)
@@ -120,6 +148,9 @@ class SqlPaymentQueryRepository:
             )
             conditions.append(or_(pt_any, mt_any))
 
+        if currency is not None and str(currency).strip():
+            conditions.append(PaymentModel.currency == str(currency).strip().upper())
+
         tokens = _search_tokens(search_q)
         for token in tokens:
             pat = f"%{_escape_ilike_pattern(token)}%"
@@ -149,20 +180,222 @@ class SqlPaymentQueryRepository:
                 )
             )
 
+        if apply_tag_slice:
+            if filter_tag_id is None:
+                raise ValueError("filter_tag_id is required when apply_tag_slice is set")
+            ft = filter_tag_id
+            oids = other_tag_ids if other_tag_ids is not None else []
+            n_other = len(oids)
+            pt_other = (
+                select(PaymentTagModel.tag_id)
+                .where(
+                    PaymentTagModel.payment_id == PaymentModel.payment_id,
+                    PaymentTagModel.tag_id != ft,
+                )
+                .correlate(PaymentModel)
+            )
+            mt_other = (
+                select(MerchantTagLinkModel.tag_id)
+                .where(
+                    MerchantTagLinkModel.merchant_id == PaymentModel.merchant_id,
+                    MerchantTagLinkModel.tag_id != ft,
+                )
+                .correlate(PaymentModel)
+            )
+            u = union_all(pt_other, mt_other).subquery()
+            cnt = select(func.count(func.distinct(u.c.tag_id))).select_from(u).scalar_subquery()
+            conditions.append(cnt == n_other)
+            for oid in oids:
+                has_o = or_(
+                    exists(
+                        select(1).where(
+                            PaymentTagModel.payment_id == PaymentModel.payment_id,
+                            PaymentTagModel.tag_id == oid,
+                        )
+                    ),
+                    exists(
+                        select(1).where(
+                            MerchantTagLinkModel.merchant_id == PaymentModel.merchant_id,
+                            MerchantTagLinkModel.tag_id == oid,
+                        )
+                    ),
+                )
+                conditions.append(has_o)
+
+        return conditions
+
+    def _cursor_condition(
+        self,
+        sort: PaymentListSort,
+        *,
+        after_date: date,
+        after_payment_id: UUID,
+        after_effective_amount: Optional[Decimal],
+        after_merchant_key: Optional[str],
+    ):
+        eff = _effective_amount_expr()
+        mkey = _merchant_sort_key_expr()
+        if sort == PaymentListSort.date_desc:
+            return or_(
+                PaymentModel.date < after_date,
+                and_(PaymentModel.date == after_date, PaymentModel.payment_id < after_payment_id),
+            )
+        if sort == PaymentListSort.date_asc:
+            return or_(
+                PaymentModel.date > after_date,
+                and_(PaymentModel.date == after_date, PaymentModel.payment_id > after_payment_id),
+            )
+        if sort == PaymentListSort.amount_desc:
+            if after_effective_amount is None:
+                raise ValueError("after_effective_amount required for amount_desc cursor")
+            ae = after_effective_amount
+            return or_(
+                eff < ae,
+                and_(eff == ae, PaymentModel.date < after_date),
+                and_(eff == ae, PaymentModel.date == after_date, PaymentModel.payment_id < after_payment_id),
+            )
+        if sort == PaymentListSort.amount_asc:
+            if after_effective_amount is None:
+                raise ValueError("after_effective_amount required for amount_asc cursor")
+            ae = after_effective_amount
+            return or_(
+                eff > ae,
+                and_(eff == ae, PaymentModel.date > after_date),
+                and_(eff == ae, PaymentModel.date == after_date, PaymentModel.payment_id > after_payment_id),
+            )
+        if sort == PaymentListSort.merchant_asc:
+            if after_merchant_key is None:
+                raise ValueError("after_merchant_key required for merchant_asc cursor")
+            ak = after_merchant_key
+            return or_(
+                mkey > ak,
+                and_(mkey == ak, PaymentModel.date < after_date),
+                and_(mkey == ak, PaymentModel.date == after_date, PaymentModel.payment_id < after_payment_id),
+            )
+        if sort == PaymentListSort.merchant_desc:
+            if after_merchant_key is None:
+                raise ValueError("after_merchant_key required for merchant_desc cursor")
+            ak = after_merchant_key
+            return or_(
+                mkey < ak,
+                and_(mkey == ak, PaymentModel.date < after_date),
+                and_(mkey == ak, PaymentModel.date == after_date, PaymentModel.payment_id < after_payment_id),
+            )
+        return None
+
+    def _order_by(self, sort: PaymentListSort):
+        eff = _effective_amount_expr()
+        mkey = _merchant_sort_key_expr()
+        if sort == PaymentListSort.date_desc:
+            return (PaymentModel.date.desc(), PaymentModel.payment_id.desc())
+        if sort == PaymentListSort.date_asc:
+            return (PaymentModel.date.asc(), PaymentModel.payment_id.asc())
+        if sort == PaymentListSort.amount_desc:
+            return (eff.desc(), PaymentModel.date.desc(), PaymentModel.payment_id.desc())
+        if sort == PaymentListSort.amount_asc:
+            return (eff.asc(), PaymentModel.date.asc(), PaymentModel.payment_id.asc())
+        if sort == PaymentListSort.merchant_asc:
+            return (mkey.asc(), PaymentModel.date.desc(), PaymentModel.payment_id.desc())
+        if sort == PaymentListSort.merchant_desc:
+            return (mkey.desc(), PaymentModel.date.desc(), PaymentModel.payment_id.desc())
+        return (PaymentModel.date.desc(), PaymentModel.payment_id.desc())
+
+    async def fetch_filtered_models(
+        self,
+        *,
+        include_tags: Optional[list[str]],
+        exclude_tags: Optional[list[str]],
+        date_from: Optional[date],
+        date_to: Optional[date],
+        amount_min: Optional[Decimal],
+        amount_max: Optional[Decimal],
+        tagged_only: Optional[bool] = None,
+        search_q: Optional[str] = None,
+        currency: Optional[str] = None,
+        filter_tag_id: Optional[UUID] = None,
+        other_tag_ids: Optional[list[UUID]] = None,
+        apply_tag_slice: bool = False,
+        sort: Optional[str] = None,
+        limit: Optional[int] = None,
+        after_date: Optional[date] = None,
+        after_payment_id: Optional[UUID] = None,
+        after_effective_amount: Optional[Decimal] = None,
+        after_merchant_key: Optional[str] = None,
+    ) -> list[PaymentModel]:
+        sort_e = _parse_sort(sort)
+        stmt = select(PaymentModel).outerjoin(MerchantModel, MerchantModel.id == PaymentModel.merchant_id)
+        conditions = self._base_conditions(
+            include_tags=include_tags,
+            exclude_tags=exclude_tags,
+            date_from=date_from,
+            date_to=date_to,
+            amount_min=amount_min,
+            amount_max=amount_max,
+            tagged_only=tagged_only,
+            search_q=search_q,
+            currency=currency,
+            filter_tag_id=filter_tag_id,
+            other_tag_ids=other_tag_ids,
+            apply_tag_slice=apply_tag_slice,
+        )
         if conditions:
             stmt = stmt.where(and_(*conditions))
 
         if after_date is not None and after_payment_id is not None:
-            stmt = stmt.where(
-                or_(
-                    PaymentModel.date < after_date,
-                    and_(PaymentModel.date == after_date, PaymentModel.payment_id < after_payment_id),
-                )
+            cur = self._cursor_condition(
+                sort_e,
+                after_date=after_date,
+                after_payment_id=after_payment_id,
+                after_effective_amount=after_effective_amount,
+                after_merchant_key=after_merchant_key,
             )
+            if cur is not None:
+                stmt = stmt.where(cur)
 
-        stmt = stmt.order_by(PaymentModel.date.desc(), PaymentModel.payment_id.desc()).options(*self._load_opts())
+        stmt = stmt.order_by(*self._order_by(sort_e)).options(*self._load_opts())
         if limit is not None:
             stmt = stmt.limit(limit)
 
         result = await self._session.execute(stmt)
         return list(result.unique().scalars().all())
+
+    async def count_and_sum_effective(
+        self,
+        *,
+        include_tags: Optional[list[str]],
+        exclude_tags: Optional[list[str]],
+        date_from: Optional[date],
+        date_to: Optional[date],
+        amount_min: Optional[Decimal],
+        amount_max: Optional[Decimal],
+        tagged_only: Optional[bool] = None,
+        search_q: Optional[str] = None,
+        currency: Optional[str] = None,
+        filter_tag_id: Optional[UUID] = None,
+        other_tag_ids: Optional[list[UUID]] = None,
+        apply_tag_slice: bool = False,
+    ) -> tuple[int, Decimal]:
+        eff = _effective_amount_expr()
+        stmt = (
+            select(func.count(PaymentModel.payment_id), func.coalesce(func.sum(eff), 0))
+            .select_from(PaymentModel)
+            .outerjoin(MerchantModel, MerchantModel.id == PaymentModel.merchant_id)
+        )
+        conditions = self._base_conditions(
+            include_tags=include_tags,
+            exclude_tags=exclude_tags,
+            date_from=date_from,
+            date_to=date_to,
+            amount_min=amount_min,
+            amount_max=amount_max,
+            tagged_only=tagged_only,
+            search_q=search_q,
+            currency=currency,
+            filter_tag_id=filter_tag_id,
+            other_tag_ids=other_tag_ids,
+            apply_tag_slice=apply_tag_slice,
+        )
+        if conditions:
+            stmt = stmt.where(and_(*conditions))
+        row = (await self._session.execute(stmt)).one()
+        return int(row[0]), Decimal(str(row[1]))
