@@ -36,7 +36,7 @@ interface Props {
 
 function formatBarAmount(v: number) {
   if (v >= 1000) return `₪${(v / 1000).toLocaleString('en-IL', { maximumFractionDigits: 1 })}K`
-  return `₪${v.toLocaleString('en-IL', { maximumFractionDigits: 0 })}`
+  return `${v.toLocaleString('en-IL', { maximumFractionDigits: 0 })}₪`
 }
 
 export function MonthlySpendBarChart({ rows, selectedYm, onSelectMonth }: Props) {
