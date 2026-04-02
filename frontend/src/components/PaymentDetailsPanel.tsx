@@ -555,6 +555,7 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
       api.payments.patch(payment!.payment_id, payload),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['payments', 'summary'] })
       queryClient.invalidateQueries({ queryKey: ['tags'] })
       onPaymentUpdate?.(data)
       setPaymentTags(data.payment_tags)
@@ -568,6 +569,7 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
     onSuccess: (updatedPayment) => {
       onPaymentUpdate?.(updatedPayment)
       queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['payments', 'summary'] })
       setIsEditingAlias(false)
     },
   })
@@ -577,6 +579,7 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
       api.payments.patch(payment!.payment_id, { collection_ids: ids }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['payments', 'summary'] })
       onPaymentUpdate?.(data)
       setCollectionIds(data.collection_ids)
     },

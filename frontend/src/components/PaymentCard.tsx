@@ -8,13 +8,14 @@ interface Props {
   tagLabels: Map<string, string>
   onClick: (event: React.MouseEvent) => void
   isSelected?: boolean
+  merchantLine?: 'default' | 'alias_first'
 }
 
 function mergedTagIds(p: Payment): string[] {
   return [...new Set([...p.payment_tags, ...p.merchant_tags])]
 }
 
-export function PaymentCard({ payment, tagLabels, onClick, isSelected }: Props) {
+export function PaymentCard({ payment, tagLabels, onClick, isSelected, merchantLine = 'default' }: Props) {
   const formattedDate = new Date(payment.date).toLocaleDateString('en-GB', {
     day: '2-digit',
     month: 'short',
@@ -28,6 +29,10 @@ export function PaymentCard({ payment, tagLabels, onClick, isSelected }: Props) 
 
   const tagIds = mergedTagIds(payment)
   const label = (id: string) => tagLabels.get(id) ?? `${id.slice(0, 8)}…`
+  const merchantTitle =
+    merchantLine === 'alias_first' && payment.merchant_alias?.trim()
+      ? payment.merchant_alias.trim()
+      : payment.display_name
 
   return (
     <div
@@ -46,9 +51,7 @@ export function PaymentCard({ payment, tagLabels, onClick, isSelected }: Props) 
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-fg truncate">
-            {payment.display_name}
-          </p>
+          <p className="text-sm font-medium text-fg truncate">{merchantTitle}</p>
           {tagIds.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {tagIds.map((tid) => (

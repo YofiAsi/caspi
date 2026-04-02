@@ -72,6 +72,7 @@ export function PaymentDialog({ payment, onClose }: Props) {
       api.payments.patch(payment!.payment_id, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['payments', 'summary'] })
       onClose()
     },
   })

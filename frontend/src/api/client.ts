@@ -1,5 +1,6 @@
 import type {
   CollectionItem,
+  MonthTagSlicesResponse,
   PatchPaymentBody,
   Payment,
   PaymentFilters,
@@ -41,6 +42,26 @@ function appendPaymentFilters(params: URLSearchParams, filters?: PaymentFilters)
   if (filters?.q?.trim()) {
     params.set('q', filters.q.trim())
   }
+  if (filters?.currency) {
+    params.set('currency', filters.currency)
+  }
+  if (filters?.sort) {
+    params.set('sort', filters.sort)
+  }
+  if (filters?.applyTagSlice) {
+    params.set('apply_tag_slice', 'true')
+  }
+  if (filters?.filterTagId) {
+    params.set('filter_tag_id', filters.filterTagId)
+  }
+  if (filters?.otherTagIds) {
+    for (const id of filters.otherTagIds) {
+      params.append('other_tag_ids', id)
+    }
+  }
+  if (filters?.includeTotals) {
+    params.set('include_totals', 'true')
+  }
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -76,6 +97,12 @@ export const api = {
       if (options.cursor) {
         params.set('after_date', options.cursor.date)
         params.set('after_payment_id', options.cursor.payment_id)
+        if (options.cursor.effective_amount != null) {
+          params.set('after_effective_amount', String(options.cursor.effective_amount))
+        }
+        if (options.cursor.merchant_sort_key != null) {
+          params.set('after_merchant_key', options.cursor.merchant_sort_key)
+        }
       }
       const query = params.toString()
       return request(`/payments${query ? `?${query}` : ''}`)
@@ -91,6 +118,17 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify(body),
       }),
+    monthTagSlices: (args: {
+      year: number
+      month: number
+      filterTagId: string
+    }): Promise<MonthTagSlicesResponse> => {
+      const params = new URLSearchParams()
+      params.set('year', String(args.year))
+      params.set('month', String(args.month))
+      params.set('filter_tag_id', args.filterTagId)
+      return request(`/payments/analysis/month-tag-slices?${params.toString()}`)
+    },
   },
   tags: {
     list: (): Promise<{ tags: TagItem[] }> => request('/tags'),

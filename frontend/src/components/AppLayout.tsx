@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTheme } from 'next-themes'
 import { logoutAndRefresh, type AuthContext } from './AuthGate'
@@ -78,13 +78,34 @@ export function AppLayout({ auth }: { auth: AuthContext }) {
           className="shrink-0 bg-surface border-b border-border px-4 sm:px-6 flex items-center justify-between gap-4 relative z-50"
           style={{ height: '60px' }}
         >
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-xl font-bold text-fg tracking-tight hover:text-fg-secondary transition-colors"
-          >
-            <img src="/favicon.png" alt="" className="h-8 w-8 shrink-0 object-contain" aria-hidden />
-            Caspi
-          </Link>
+          <div className="flex items-center gap-6 min-w-0">
+            <Link
+              to="/"
+              className="flex items-center gap-2 text-xl font-bold text-fg tracking-tight hover:text-fg-secondary transition-colors shrink-0"
+            >
+              <img src="/favicon.png" alt="" className="h-8 w-8 shrink-0 object-contain" aria-hidden />
+              Caspi
+            </Link>
+            <nav className="flex items-center gap-1 text-sm font-medium" aria-label="Main">
+              <NavLink
+                to="/"
+                end
+                className={({ isActive }) =>
+                  `px-2.5 py-1 rounded-lg transition-colors ${isActive ? 'bg-accent-soft text-accent-soft-fg' : 'text-fg-muted hover:text-fg-secondary hover:bg-hover-surface'}`
+                }
+              >
+                Payments
+              </NavLink>
+              <NavLink
+                to="/analysis"
+                className={({ isActive }) =>
+                  `px-2.5 py-1 rounded-lg transition-colors ${isActive ? 'bg-accent-soft text-accent-soft-fg' : 'text-fg-muted hover:text-fg-secondary hover:bg-hover-surface'}`
+                }
+              >
+                Analysis
+              </NavLink>
+            </nav>
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -204,7 +225,10 @@ export function AppLayout({ auth }: { auth: AuthContext }) {
       {showScrapeModal && (
         <ScrapeModal
           onClose={() => setShowScrapeModal(false)}
-          onSyncComplete={() => queryClient.invalidateQueries({ queryKey: ['payments'] })}
+          onSyncComplete={() => {
+            void queryClient.invalidateQueries({ queryKey: ['payments'] })
+            void queryClient.invalidateQueries({ queryKey: ['payments', 'summary'] })
+          }}
         />
       )}
     </>

@@ -7,6 +7,7 @@ import { PaymentList } from './components/PaymentList'
 import { PaymentDetailsPanel } from './components/PaymentDetailsPanel'
 import { BulkActionsPanel } from './components/BulkActionsPanel'
 import { PaymentListSearchFab } from './components/PaymentListSearchFab'
+import { MonthlyBreakdownPage } from './pages/MonthlyBreakdownPage'
 import type { Payment, PaymentFilters } from './types'
 
 const queryClient = new QueryClient({
@@ -94,6 +95,7 @@ function AppRoutes({ auth }: { auth: AuthContext }) {
     <Routes>
       <Route element={<AppLayout auth={auth} />}>
         <Route path="/" element={<HomePage />} />
+        <Route path="/analysis" element={<MonthlyBreakdownPage />} />
       </Route>
     </Routes>
   )
