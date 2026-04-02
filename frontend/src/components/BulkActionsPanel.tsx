@@ -86,6 +86,7 @@ function BulkTagDialog({ payments, onClose, onSaved }: DialogProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['payments', 'summary'] })
       onSaved()
     },
   })

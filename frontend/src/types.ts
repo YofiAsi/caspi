@@ -60,6 +60,14 @@ export interface PatchPaymentBody {
   merchant_alias?: string | null
 }
 
+export type PaymentListSort =
+  | 'date_desc'
+  | 'date_asc'
+  | 'amount_desc'
+  | 'amount_asc'
+  | 'merchant_asc'
+  | 'merchant_desc'
+
 export interface PaymentFilters {
   includeTags?: string[]
   excludeTags?: string[]
@@ -69,16 +77,46 @@ export interface PaymentFilters {
   amountMax?: number
   taggedOnly?: boolean
   q?: string
+  currency?: string
+  sort?: PaymentListSort
+  applyTagSlice?: boolean
+  filterTagId?: string
+  otherTagIds?: string[]
+  includeTotals?: boolean
 }
 
 export interface PaymentListCursor {
   date: string
   payment_id: string
+  effective_amount?: string
+  merchant_sort_key?: string
+}
+
+export interface ListFilterTotals {
+  payment_count: number
+  sum_effective: string
 }
 
 export interface PaymentListPage {
   items: Payment[]
   next_cursor: PaymentListCursor | null
+  filter_totals?: ListFilterTotals | null
+}
+
+export interface MonthTagSliceRow {
+  other_tag_ids: string[]
+  label: string
+  sum_effective: string
+  payment_count: number
+  fraction: string
+  is_other: boolean
+}
+
+export interface MonthTagSlicesResponse {
+  currency: string
+  month_total_effective: string
+  payment_count: number
+  slices: MonthTagSliceRow[]
 }
 
 export interface CurrencyTotals {
