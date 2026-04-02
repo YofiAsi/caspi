@@ -35,8 +35,8 @@ interface Props {
 }
 
 function formatBarAmount(v: number) {
-  if (v >= 1000) return `${(v / 1000).toLocaleString('en-IL', { maximumFractionDigits: 1 })}K`
-  return v.toLocaleString('en-IL', { maximumFractionDigits: 0 })
+  if (v >= 1000) return `₪${(v / 1000).toLocaleString('en-IL', { maximumFractionDigits: 1 })}K`
+  return `₪${v.toLocaleString('en-IL', { maximumFractionDigits: 0 })}`
 }
 
 export function MonthlySpendBarChart({ rows, selectedYm, onSelectMonth }: Props) {
@@ -62,12 +62,6 @@ export function MonthlySpendBarChart({ rows, selectedYm, onSelectMonth }: Props)
   return (
     <div className="w-full min-w-0">
       <div className="relative min-w-0">
-        <span
-          className="pointer-events-none absolute right-3 top-1 z-20 flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-surface/95 text-sm font-semibold text-fg-muted shadow-sm backdrop-blur-sm"
-          aria-hidden
-        >
-          ₪
-        </span>
         <div ref={scrollRef} className="overflow-x-auto pb-2 -mx-1 px-1">
           <div style={{ width: Math.max(480, rows.length * barWidth), height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
