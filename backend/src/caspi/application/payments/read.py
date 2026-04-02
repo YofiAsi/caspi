@@ -4,13 +4,14 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from caspi.application.payments.aggregate_full_tag_slices import aggregate_full_merged_tag_slices
 from caspi.application.payments.aggregate_month_tag_slices import aggregate_month_tag_slices
 from caspi.application.payments.aggregate_summary import aggregate_payment_summary
 from caspi.application.payments.response_mapper import domain_payment_to_response
-from caspi.infrastructure.models import TagModel
+from caspi.infrastructure.models import PaymentCollectionModel, PaymentModel, TagModel
 from caspi.infrastructure.repositories.merchant_repository import SqlMerchantRepository
 from caspi.infrastructure.repositories.payment_mapper import payment_model_to_domain
 from caspi.infrastructure.repositories.payment_query_repository import SqlPaymentQueryRepository
@@ -56,6 +57,11 @@ async def list_payment_responses(
     apply_tag_slice: bool = False,
     filter_tag_id: Optional[UUID] = None,
     other_tag_ids: Optional[list[UUID]] = None,
+    collection_id: Optional[UUID] = None,
+    apply_tag_combo: bool = False,
+    merged_tag_ids: Optional[list[UUID]] = None,
+    apply_tag_combo_other: bool = False,
+    tag_combo_excludes: Optional[list[list[UUID]]] = None,
 ) -> list[PaymentResponse]:
     merchant_repo = SqlMerchantRepository(db)
     merchant_tag_map = await merchant_repo.load_tag_ids_by_merchant()
@@ -72,6 +78,11 @@ async def list_payment_responses(
         apply_tag_slice=apply_tag_slice,
         filter_tag_id=filter_tag_id,
         other_tag_ids=other_tag_ids,
+        collection_id=collection_id,
+        apply_tag_combo=apply_tag_combo,
+        merged_tag_ids=merged_tag_ids,
+        apply_tag_combo_other=apply_tag_combo_other,
+        tag_combo_excludes=tag_combo_excludes,
     )
     out: list[PaymentResponse] = []
     for m in models:
@@ -110,6 +121,11 @@ async def list_payments_page(
     after_effective_amount: Optional[Decimal] = None,
     after_merchant_key: Optional[str] = None,
     include_totals: bool = False,
+    collection_id: Optional[UUID] = None,
+    apply_tag_combo: bool = False,
+    merged_tag_ids: Optional[list[UUID]] = None,
+    apply_tag_combo_other: bool = False,
+    tag_combo_excludes: Optional[list[list[UUID]]] = None,
 ) -> PaymentListPageResponse:
     merchant_repo = SqlMerchantRepository(db)
     merchant_tag_map = await merchant_repo.load_tag_ids_by_merchant()
@@ -130,6 +146,11 @@ async def list_payments_page(
             apply_tag_slice=apply_tag_slice,
             filter_tag_id=filter_tag_id,
             other_tag_ids=other_tag_ids,
+            collection_id=collection_id,
+            apply_tag_combo=apply_tag_combo,
+            merged_tag_ids=merged_tag_ids,
+            apply_tag_combo_other=apply_tag_combo_other,
+            tag_combo_excludes=tag_combo_excludes,
         )
         filter_totals = ListFilterTotals(payment_count=cnt, sum_effective=ssum)
 
@@ -152,6 +173,11 @@ async def list_payments_page(
         after_payment_id=after_payment_id,
         after_effective_amount=after_effective_amount,
         after_merchant_key=after_merchant_key,
+        collection_id=collection_id,
+        apply_tag_combo=apply_tag_combo,
+        merged_tag_ids=merged_tag_ids,
+        apply_tag_combo_other=apply_tag_combo_other,
+        tag_combo_excludes=tag_combo_excludes,
     )
     items: list[PaymentResponse] = []
     for m in models:
@@ -187,6 +213,11 @@ async def payment_summary_for_filters(
     amount_min: Optional[Decimal] = None,
     amount_max: Optional[Decimal] = None,
     tagged_only: Optional[bool] = None,
+    collection_id: Optional[UUID] = None,
+    apply_tag_combo: bool = False,
+    merged_tag_ids: Optional[list[UUID]] = None,
+    apply_tag_combo_other: bool = False,
+    tag_combo_excludes: Optional[list[list[UUID]]] = None,
 ):
     responses = await list_payment_responses(
         db,
@@ -197,6 +228,11 @@ async def payment_summary_for_filters(
         amount_min=amount_min,
         amount_max=amount_max,
         tagged_only=tagged_only,
+        collection_id=collection_id,
+        apply_tag_combo=apply_tag_combo,
+        merged_tag_ids=merged_tag_ids,
+        apply_tag_combo_other=apply_tag_combo_other,
+        tag_combo_excludes=tag_combo_excludes,
     )
     ids: set[str] = set()
     for r in responses:
@@ -235,3 +271,61 @@ async def month_tag_slices_for_month(
         tag_name_by_id=tag_name_by_id,
         currency="ILS",
     )
+
+
+async def collection_tag_slices(
+    db: AsyncSession,
+    *,
+    collection_id: UUID,
+) -> MonthTagSlicesResponse:
+    responses = await list_payment_responses(
+        db,
+        collection_id=collection_id,
+        currency="ILS",
+    )
+    ids: set[str] = set()
+    for r in responses:
+        ids.update(r.payment_tags)
+        ids.update(r.merchant_tags)
+    tag_name_by_id = await _tag_name_by_id(db, ids)
+    return aggregate_full_merged_tag_slices(
+        responses,
+        tag_name_by_id=tag_name_by_id,
+        currency="ILS",
+    )
+
+
+async def collection_timeseries(
+    db: AsyncSession,
+    *,
+    collection_id: UUID,
+    granularity: str,
+) -> list[tuple[date, Decimal, int]]:
+    trunc = {"daily": "day", "weekly": "week", "monthly": "month"}[granularity]
+    eff = func.coalesce(PaymentModel.share_amount, PaymentModel.amount)
+    period_col = func.date_trunc(trunc, PaymentModel.date).label("period_start")
+    stmt = (
+        select(
+            period_col,
+            func.coalesce(func.sum(eff), 0),
+            func.count(PaymentModel.payment_id),
+        )
+        .select_from(PaymentModel)
+        .join(
+            PaymentCollectionModel,
+            PaymentCollectionModel.payment_id == PaymentModel.payment_id,
+        )
+        .where(
+            PaymentCollectionModel.collection_id == collection_id,
+            PaymentModel.currency == "ILS",
+        )
+        .group_by(period_col)
+        .order_by(period_col)
+    )
+    result = await db.execute(stmt)
+    rows: list[tuple[date, Decimal, int]] = []
+    for r in result.all():
+        p0 = r[0]
+        d = p0.date() if hasattr(p0, "date") else p0
+        rows.append((d, Decimal(str(r[1])), int(r[2])))
+    return rows
