@@ -29,11 +29,35 @@ class PaymentResponse(BaseModel):
 class PaymentListCursor(BaseModel):
     date: date
     payment_id: str
+    effective_amount: Optional[Decimal] = None
+    merchant_sort_key: Optional[str] = None
+
+
+class ListFilterTotals(BaseModel):
+    payment_count: int
+    sum_effective: Decimal
 
 
 class PaymentListPageResponse(BaseModel):
     items: list[PaymentResponse]
     next_cursor: Optional[PaymentListCursor] = None
+    filter_totals: Optional[ListFilterTotals] = None
+
+
+class MonthTagSliceRow(BaseModel):
+    other_tag_ids: list[str]
+    label: str
+    sum_effective: Decimal
+    payment_count: int
+    fraction: Decimal
+    is_other: bool = False
+
+
+class MonthTagSlicesResponse(BaseModel):
+    currency: str
+    month_total_effective: Decimal
+    payment_count: int
+    slices: list[MonthTagSliceRow]
 
 
 class PatchPaymentBody(BaseModel):

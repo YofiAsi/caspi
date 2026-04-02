@@ -6,11 +6,16 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from caspi.application.payments.read import list_payments_page, payment_summary_for_filters
+from caspi.application.payments.read import (
+    list_payments_page,
+    month_tag_slices_for_month,
+    payment_summary_for_filters,
+)
 from caspi.application.payments.update import PaymentPatchValidationError, patch_payment_by_id
 from caspi.domain.value_objects.ids import PaymentId
 from caspi.infrastructure.database import get_db
 from caspi.interfaces.schemas.payments import (
+    MonthTagSlicesResponse,
     PatchPaymentBody,
     PaymentListPageResponse,
     PaymentResponse,
@@ -18,6 +23,18 @@ from caspi.interfaces.schemas.payments import (
 )
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
+
+
+def _parse_uuid_list(raw: Optional[list[str]]) -> Optional[list[UUID]]:
+    if not raw:
+        return None
+    out: list[UUID] = []
+    for s in raw:
+        try:
+            out.append(UUID(str(s)))
+        except ValueError:
+            continue
+    return out
 
 
 @router.get("/summary", response_model=PaymentSummaryResponse)
@@ -43,6 +60,25 @@ async def payments_summary(
     )
 
 
+@router.get("/analysis/month-tag-slices", response_model=MonthTagSlicesResponse)
+async def payments_month_tag_slices(
+    year: int = Query(..., ge=2000, le=2100),
+    month: int = Query(..., ge=1, le=12),
+    filter_tag_id: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        UUID(filter_tag_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid filter_tag_id")
+    return await month_tag_slices_for_month(
+        db,
+        year=year,
+        month=month,
+        filter_tag_id=filter_tag_id,
+    )
+
+
 @router.get("", response_model=PaymentListPageResponse)
 async def list_payments(
     include_tags: Optional[list[str]] = Query(default=None),
@@ -53,9 +89,17 @@ async def list_payments(
     amount_max: Optional[Decimal] = None,
     tagged_only: bool = False,
     q: Optional[str] = Query(default=None),
+    currency: Optional[str] = Query(default=None, min_length=3, max_length=3),
+    sort: Optional[str] = Query(default=None),
+    apply_tag_slice: bool = False,
+    filter_tag_id: Optional[str] = Query(default=None),
+    other_tag_ids: Optional[list[str]] = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     after_date: Optional[date] = None,
     after_payment_id: Optional[UUID] = None,
+    after_effective_amount: Optional[Decimal] = None,
+    after_merchant_key: Optional[str] = None,
+    include_totals: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     if (after_date is None) != (after_payment_id is None):
@@ -63,6 +107,27 @@ async def list_payments(
             status_code=422,
             detail="after_date and after_payment_id must be supplied together",
         )
+
+    ft_uuid: Optional[UUID] = None
+    if filter_tag_id is not None:
+        try:
+            ft_uuid = UUID(filter_tag_id)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid filter_tag_id")
+
+    if apply_tag_slice:
+        if ft_uuid is None:
+            raise HTTPException(
+                status_code=422,
+                detail="filter_tag_id is required when apply_tag_slice is true",
+            )
+
+    slice_other: Optional[list[UUID]] = None
+    if apply_tag_slice:
+        slice_other = _parse_uuid_list(other_tag_ids)
+        if slice_other is None:
+            slice_other = []
+
     return await list_payments_page(
         db,
         include_tags=include_tags,
@@ -73,9 +138,17 @@ async def list_payments(
         amount_max=amount_max,
         tagged_only=tagged_only or None,
         search_q=q,
+        currency=currency.upper().strip() if currency else None,
+        apply_tag_slice=apply_tag_slice,
+        filter_tag_id=ft_uuid if apply_tag_slice else None,
+        other_tag_ids=slice_other,
+        sort=sort,
         limit=limit,
         after_date=after_date,
         after_payment_id=after_payment_id,
+        after_effective_amount=after_effective_amount,
+        after_merchant_key=after_merchant_key,
+        include_totals=include_totals,
     )
 
 
