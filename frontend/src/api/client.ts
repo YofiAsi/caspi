@@ -137,6 +137,8 @@ export const api = {
   },
   collections: {
     list: (): Promise<CollectionItem[]> => request('/collections'),
+    create: (name: string): Promise<CollectionItem> =>
+      request('/collections', { method: 'POST', body: JSON.stringify({ name }) }),
   },
   auth: {
     logout: (): Promise<void> =>

@@ -31,12 +31,22 @@ function capitalize(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
 }
 
-function Row({ label, value }: { label: string; value?: string | number | null }) {
+function Row({
+  label,
+  value,
+  dense,
+}: {
+  label: string
+  value?: string | number | null
+  dense?: boolean
+}) {
   if (value === undefined || value === null || value === '') return null
+  const sz = dense ? 'text-[11px]' : 'text-xs'
+  const py = dense ? 'py-1' : 'py-1.5'
   return (
-    <div className="flex justify-between gap-4 py-1.5 border-b border-border-subtle last:border-0">
-      <span className="text-xs text-fg-muted shrink-0">{label}</span>
-      <span className="text-xs text-fg-secondary text-right break-all">{String(value)}</span>
+    <div className={`flex justify-between gap-3 ${py} border-b border-border-subtle last:border-0`}>
+      <span className={`${sz} text-fg-muted shrink-0`}>{label}</span>
+      <span className={`${sz} text-fg-secondary text-right break-all`}>{String(value)}</span>
     </div>
   )
 }
@@ -155,7 +165,7 @@ function TagAutocompleteField({
         }}
         onFocus={() => setOpen(suggestions.length > 0)}
         onKeyDown={onKeyDown}
-        placeholder="Add a tag…"
+        placeholder="Tag…"
         className="w-full text-xs border border-border rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring bg-input-bg text-fg"
         disabled={disabled}
       />
@@ -193,6 +203,158 @@ function TagAutocompleteField({
   )
 }
 
+function CollectionAutocompleteField({
+  value,
+  onChange,
+  collectionIds,
+  allCollections,
+  disabled,
+  onPick,
+  onCommitNew,
+}: {
+  value: string
+  onChange: (v: string) => void
+  collectionIds: string[]
+  allCollections: CollectionItem[]
+  disabled: boolean
+  onPick: (id: string) => void
+  onCommitNew: (trimmed: string) => void
+}) {
+  const listId = useId()
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState(false)
+  const [highlighted, setHighlighted] = useState(-1)
+  const { resolvedTheme } = useTheme()
+  const tagVariant: TagColorVariant = resolvedTheme === 'dark' ? 'dark' : 'light'
+
+  const suggestions = useMemo(() => {
+    const selected = new Set(collectionIds)
+    const available = allCollections.filter((c) => !selected.has(c.id))
+    const q = value.trim().toLowerCase()
+    if (q) return available.filter((c) => c.name.toLowerCase().includes(q)).slice(0, 50)
+    return available.slice(0, 20)
+  }, [allCollections, collectionIds, value])
+
+  useEffect(() => {
+    setHighlighted(-1)
+  }, [suggestions])
+
+  useEffect(() => {
+    if (suggestions.length === 0) setOpen(false)
+  }, [suggestions.length])
+
+  useEffect(() => {
+    const onDocMouseDown = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    return () => document.removeEventListener('mousedown', onDocMouseDown)
+  }, [])
+
+  const pick = (c: CollectionItem) => {
+    onPick(c.id)
+    onChange('')
+    setOpen(false)
+    setHighlighted(-1)
+  }
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      if (open) {
+        e.preventDefault()
+        e.stopPropagation()
+        setOpen(false)
+        setHighlighted(-1)
+      }
+      return
+    }
+    if (suggestions.length === 0) {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        onCommitNew(value.trim())
+      }
+      return
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setOpen(true)
+      setHighlighted((i) => {
+        if (i < 0) return 0
+        return i < suggestions.length - 1 ? i + 1 : i
+      })
+      return
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setOpen(true)
+      setHighlighted((i) => (i <= 0 ? 0 : i - 1))
+      return
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (open && highlighted >= 0 && suggestions[highlighted]) {
+        pick(suggestions[highlighted])
+      } else {
+        onCommitNew(value.trim())
+      }
+    }
+  }
+
+  const showList = open && suggestions.length > 0
+
+  return (
+    <div ref={rootRef} className="relative flex-1 min-w-0">
+      <input
+        type="text"
+        role="combobox"
+        aria-expanded={showList}
+        aria-controls={listId}
+        aria-autocomplete="list"
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value)
+          setOpen(true)
+        }}
+        onFocus={() => setOpen(suggestions.length > 0)}
+        onKeyDown={onKeyDown}
+        placeholder="Add…"
+        className="w-full text-xs border border-border rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring bg-input-bg text-fg"
+        disabled={disabled}
+      />
+      {showList && (
+        <ul
+          id={listId}
+          role="listbox"
+          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-40 overflow-y-auto rounded-lg border border-border bg-surface py-1 shadow-lg"
+        >
+          {suggestions.map((c, idx) => (
+            <li
+              key={c.id}
+              role="option"
+              aria-selected={idx === highlighted}
+              className={`cursor-pointer px-2.5 py-1.5 text-xs flex items-center gap-2 ${
+                idx === highlighted ? 'bg-accent-soft text-accent-nav-fg' : 'text-fg-secondary hover:bg-hover-surface'
+              }`}
+              onMouseDown={(ev) => {
+                ev.preventDefault()
+                pick(c)
+              }}
+              onMouseEnter={() => setHighlighted(idx)}
+            >
+              <span
+                className="shrink-0 size-2 rounded-full"
+                style={{ backgroundColor: getTagAccentColorById(c.id, tagVariant) }}
+                aria-hidden
+              />
+              {c.name}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 interface ContentProps {
   payment: Payment
   paymentTags: string[]
@@ -216,8 +378,13 @@ interface ContentProps {
   isAliasPending: boolean
   collectionIds: string[]
   allCollections: CollectionItem[]
-  onCollectionChange: (ids: string[]) => void
   collectionsBusy: boolean
+  collectionInput: string
+  setCollectionInput: (v: string) => void
+  collectionCommitBusy: boolean
+  pickCollection: (id: string) => void
+  commitCollection: (trimmed: string) => void
+  removeCollection: (id: string) => void
 }
 
 function PanelContent({
@@ -243,23 +410,32 @@ function PanelContent({
   isAliasPending,
   collectionIds,
   allCollections,
-  onCollectionChange,
   collectionsBusy,
+  collectionInput,
+  setCollectionInput,
+  collectionCommitBusy,
+  pickCollection,
+  commitCollection,
+  removeCollection,
 }: ContentProps) {
-  const [rawExpanded, setRawExpanded] = useState(false)
   const { extra } = payment
 
   const tagLabelMap = useMemo(() => new Map(allTags.map((t) => [t.id, t.name])), [allTags])
   const tagLabel = (id: string) => tagLabelMap.get(id) ?? `${id.slice(0, 8)}…`
+  const collectionLabelMap = useMemo(
+    () => new Map(allCollections.map((c) => [c.id, c.name])),
+    [allCollections],
+  )
+  const collectionLabel = (id: string) => collectionLabelMap.get(id) ?? `${id.slice(0, 8)}…`
 
-  const formattedDate = new Date(payment.date).toLocaleDateString('en-GB', {
+  const listFormattedDate = new Date(payment.date).toLocaleDateString('en-GB', {
     day: '2-digit',
     month: 'short',
-    year: 'numeric',
   })
+  const dateParts = listFormattedDate.split(' ')
 
   const effectiveAmount = formatCurrency(payment.effective_amount, payment.currency)
-  const isShared = payment.share_amount !== null && payment.share_currency !== null
+  const isShared = payment.share_amount !== null
   const totalDiffers = payment.effective_amount !== payment.amount
 
   const showOriginal = paymentShowsOriginalCurrency(payment)
@@ -276,15 +452,13 @@ function PanelContent({
   const showInstallments =
     extra.installment_number != null && extra.installment_total != null
 
-  const hasMerchantAlias = Boolean(payment.merchant_alias?.trim())
-  const headlineMerchantName = hasMerchantAlias
-    ? payment.display_name
-    : payment.description.trim() || payment.display_name
+  const showDescriptionSub =
+    payment.description.trim() !== payment.display_name.trim()
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="px-4 py-4 space-y-5">
-        <div>
+      <div className="px-4 py-4 space-y-4">
+        <div className="pb-3 border-b border-border-subtle -mx-4 px-4">
           {isEditingAlias ? (
             <div className="flex items-center gap-1.5">
               <input
@@ -323,118 +497,152 @@ function PanelContent({
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 group">
-              <p className="text-sm font-semibold text-fg leading-snug">{headlineMerchantName}</p>
-              <button
-                type="button"
-                onClick={startEditAlias}
-                className="text-disabled-fg hover:text-fg-subtle opacity-0 group-hover:opacity-100 transition-opacity"
-                aria-label="Edit name alias"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                </svg>
-              </button>
+            <div className="flex items-center gap-3">
+              <div className="shrink-0 text-center w-10">
+                <p className="text-xs text-fg-subtle leading-tight">{dateParts[1]}</p>
+                <p className="text-sm font-semibold text-fg-secondary leading-tight">{dateParts[0]}</p>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 group min-w-0">
+                  <p className="text-sm font-medium text-fg truncate">{payment.display_name}</p>
+                  <button
+                    type="button"
+                    onClick={startEditAlias}
+                    className="text-disabled-fg hover:text-fg-subtle shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Edit name alias"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                  </button>
+                </div>
+                {showDescriptionSub && (
+                  <p className="text-xs text-fg-subtle truncate mt-0.5">{payment.description}</p>
+                )}
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-sm font-semibold text-fg">{effectiveAmount}</p>
+                {showOriginal && (
+                  <p className="text-[10px] text-fg-subtle truncate max-w-[7rem] ml-auto">
+                    {formatCurrency(extra.original_amount!, extra.original_currency!)}
+                  </p>
+                )}
+                {totalDiffers && (
+                  <p
+                    className="text-[10px] text-fg-subtle truncate max-w-[7rem] ml-auto"
+                    title="Full charge amount"
+                  >
+                    Tot. {formatCurrency(payment.amount, payment.currency)}
+                  </p>
+                )}
+                {isShared && (
+                  <p className="text-xs text-emerald-link font-medium">shared</p>
+                )}
+                {payment.payment_type === 'recurring' && (
+                  <p className="text-xs text-info font-medium">recurring</p>
+                )}
+              </div>
             </div>
           )}
-          {hasMerchantAlias && payment.description !== payment.display_name && (
-            <p className="text-xs text-fg-subtle mt-0.5">{payment.description}</p>
-          )}
-          <p className="text-xl font-bold text-fg mt-1.5">{effectiveAmount}</p>
-          {totalDiffers && (
-            <p className="text-xs text-fg-muted">
-              Total: {formatCurrency(payment.amount, payment.currency)}
-            </p>
-          )}
-          {isShared && (
-            <p className="text-xs text-emerald-link mt-0.5">
-              My share:{' '}
-              {formatCurrency(payment.share_amount!, payment.share_currency!)}
-            </p>
-          )}
-          <p className="text-xs text-fg-muted mt-0.5">{formattedDate}</p>
         </div>
 
         <div>
-          <p className="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-1">
-            Transaction
-          </p>
-          <div className="bg-surface rounded-lg border border-border-subtle px-3 py-0.5">
-            <Row label="Status" value={extra.status ? capitalize(extra.status) : null} />
-            <Row label="Category" value={extra.category} />
-            <Row
-              label="Type"
-              value={extra.type === 'installments' ? 'Installments' : extra.type === 'normal' ? 'Normal' : extra.type ?? null}
-            />
-            {showInstallments && (
-              <Row
-                label="Installment"
-                value={`${extra.installment_number} of ${extra.installment_total}`}
+          <div className="flex flex-wrap gap-1.5 min-h-[1.5rem]">
+            {collectionIds.map((cid) => (
+              <TagChip
+                key={cid}
+                tagId={cid}
+                label={collectionLabel(cid)}
+                className="px-2 py-0.5 text-[11px]"
+                onRemove={() => removeCollection(cid)}
+                disabled={isPending || collectionsBusy}
+                removeAriaLabel={`Remove collection ${collectionLabel(cid)}`}
               />
-            )}
-            {processedDateStr && <Row label="Processed" value={processedDateStr} />}
-            {showOriginal && (
-              <Row
-                label="Original amount"
-                value={formatCurrency(extra.original_amount!, extra.original_currency!)}
-              />
-            )}
-            <Row label="Account" value={extra.account_number} />
-            <Row label="Memo" value={extra.memo} />
-            <Row
-              label="Payment type"
-              value={payment.payment_type === 'recurring' ? 'Recurring' : 'One-time'}
+            ))}
+          </div>
+          <div className="flex gap-1.5 mt-1.5">
+            <CollectionAutocompleteField
+              value={collectionInput}
+              onChange={setCollectionInput}
+              collectionIds={collectionIds}
+              allCollections={allCollections}
+              disabled={isPending || collectionsBusy || collectionCommitBusy}
+              onPick={pickCollection}
+              onCommitNew={commitCollection}
             />
           </div>
         </div>
 
         <div>
-          <p className="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-1.5">
-            Tags
+          <p
+            className="text-[10px] text-fg-muted mb-0.5 tabular-nums"
+            title="All matching payments, including future imports"
+          >
+            ∞
           </p>
-          <p className="text-xs text-fg-muted mb-1">All like this (future imports too)</p>
-          <div className="flex flex-wrap gap-1.5 mb-3">
+          <div className="flex flex-wrap gap-1.5 mb-2">
             {merchantTags.map((tid) => (
               <TagChip
                 key={`m-${tid}`}
                 tagId={tid}
                 label={tagLabel(tid)}
-                className="px-2.5 py-0.5 text-xs"
+                className="px-2 py-0.5 text-[11px]"
                 onRemove={() => removeTag(tid)}
                 disabled={isPending}
               />
             ))}
-            {merchantTags.length === 0 && (
-              <span className="text-xs text-fg-subtle">None</span>
-            )}
           </div>
-          <p className="text-xs text-fg-muted mb-1">This payment only</p>
+          <p
+            className="text-[10px] text-fg-muted mb-0.5 tabular-nums"
+            title="This payment only"
+          >
+            1
+          </p>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {paymentTags.map((tid) => (
               <TagChip
                 key={`p-${tid}`}
                 tagId={tid}
                 label={tagLabel(tid)}
-                className="px-2.5 py-0.5 text-xs"
+                className="px-2 py-0.5 text-[11px]"
                 onRemove={() => removeTag(tid)}
                 disabled={isPending}
               />
             ))}
-            {paymentTags.length === 0 && (
-              <span className="text-xs text-fg-subtle">None</span>
-            )}
           </div>
-          <label className="flex items-center gap-2 text-xs text-fg-muted mb-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={tagScopeAllSimilar}
-              onChange={(e) => setTagScopeAllSimilar(e.target.checked)}
-              className="rounded border-checkbox-border text-accent focus:ring-ring"
+          <div className="inline-flex rounded-lg border border-border p-0.5 gap-0.5 mb-2">
+            <button
+              type="button"
+              aria-pressed={tagScopeAllSimilar}
+              title="New tags apply to all matching payments, including future imports"
+              aria-label="New tags apply to all matching payments, including future imports"
+              onClick={() => setTagScopeAllSimilar(true)}
               disabled={isPending}
-            />
-            New tags apply to all like this (including future)
-          </label>
-          <div className="flex gap-2">
+              className={`px-2 py-0.5 text-[11px] font-medium rounded-md transition-colors ${
+                tagScopeAllSimilar
+                  ? 'bg-accent-soft text-accent-soft-fg'
+                  : 'text-fg-muted hover:bg-hover-surface'
+              } disabled:opacity-50`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              aria-pressed={!tagScopeAllSimilar}
+              title="New tags apply only to this payment"
+              aria-label="New tags apply only to this payment"
+              onClick={() => setTagScopeAllSimilar(false)}
+              disabled={isPending}
+              className={`px-2 py-0.5 text-[11px] font-medium rounded-md transition-colors ${
+                !tagScopeAllSimilar
+                  ? 'bg-accent-soft text-accent-soft-fg'
+                  : 'text-fg-muted hover:bg-hover-surface'
+              } disabled:opacity-50`}
+            >
+              This
+            </button>
+          </div>
+          <div className="flex gap-1.5">
             <TagAutocompleteField
               value={tagInput}
               onChange={setTagInput}
@@ -448,56 +656,49 @@ function PanelContent({
               type="button"
               onClick={addTag}
               disabled={isPending || tagCommitBusy}
-              className="px-3 py-1.5 text-xs bg-accent-soft text-accent-soft-fg rounded-lg hover:bg-accent-soft-hover font-medium disabled:opacity-50"
+              className="shrink-0 px-2 py-1.5 text-xs bg-accent-soft text-accent-soft-fg rounded-lg hover:bg-accent-soft-hover font-medium disabled:opacity-50"
+              aria-label="Add tag"
+              title="Add tag"
             >
-              Add
+              +
             </button>
           </div>
         </div>
 
         <div>
-          <p className="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-1.5">
-            Collections
-          </p>
-          <select
-            multiple
-            className="w-full min-h-[72px] text-xs border border-border rounded-lg px-2.5 py-1.5 bg-input-bg text-fg focus:outline-none focus:ring-2 focus:ring-ring"
-            value={collectionIds}
-            disabled={collectionsBusy || isPending}
-            onChange={(e) => {
-              const next = [...e.target.selectedOptions].map((o) => o.value)
-              onCollectionChange(next)
-            }}
-          >
-            {allCollections.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {extra.extended_details?.rawDetails != null && (
-          <div>
-            <button
-              type="button"
-              onClick={() => setRawExpanded((v) => !v)}
-              className="flex items-center gap-1.5 text-xs font-semibold text-fg-subtle uppercase tracking-wide"
-            >
-              <span
-                className={`transition-transform duration-150 inline-block ${rawExpanded ? 'rotate-90' : ''}`}
-              >
-                ▶
-              </span>
-              Raw details
-            </button>
-            {rawExpanded && (
-              <pre className="mt-2 text-xs text-fg-muted bg-muted-hover rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">
-                {JSON.stringify(extra.extended_details!.rawDetails, null, 2)}
-              </pre>
+          <p className="text-[11px] text-fg-muted mb-1">More</p>
+          <div className="bg-surface rounded-lg border border-border-subtle px-2.5 py-0.5">
+            <Row dense label="Status" value={extra.status ? capitalize(extra.status) : null} />
+            <Row dense label="Category" value={extra.category} />
+            <Row
+              dense
+              label="Type"
+              value={extra.type === 'installments' ? 'Installments' : extra.type === 'normal' ? 'Normal' : extra.type ?? null}
+            />
+            {showInstallments && (
+              <Row
+                dense
+                label="Inst."
+                value={`${extra.installment_number} of ${extra.installment_total}`}
+              />
             )}
+            {processedDateStr && <Row dense label="Proc." value={processedDateStr} />}
+            {showOriginal && (
+              <Row
+                dense
+                label="Orig."
+                value={formatCurrency(extra.original_amount!, extra.original_currency!)}
+              />
+            )}
+            <Row dense label="Acct." value={extra.account_number} />
+            <Row dense label="Memo" value={extra.memo} />
+            <Row
+              dense
+              label="Billing"
+              value={payment.payment_type === 'recurring' ? 'Recurring' : 'One-time'}
+            />
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
@@ -513,6 +714,8 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
   const [isEditingAlias, setIsEditingAlias] = useState(false)
   const [aliasInput, setAliasInput] = useState('')
   const [collectionIds, setCollectionIds] = useState<string[]>([])
+  const [collectionInput, setCollectionInput] = useState('')
+  const [collectionCommitBusy, setCollectionCommitBusy] = useState(false)
 
   const { data: tagsData } = useQuery({
     queryKey: ['tags'],
@@ -535,6 +738,7 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
       setPaymentTags(payment.payment_tags)
       setMerchantTags(payment.merchant_tags)
       setCollectionIds(payment.collection_ids)
+      setCollectionInput('')
       setTagInput('')
       setIsEditingAlias(false)
       setAliasInput('')
@@ -588,6 +792,57 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
   const handleCollectionChange = (ids: string[]) => {
     setCollectionIds(ids)
     if (payment) collectionMutation.mutate(ids)
+  }
+
+  const pickCollection = (id: string) => {
+    if (collectionIds.includes(id)) return
+    handleCollectionChange([...collectionIds, id])
+  }
+
+  const removeCollection = (id: string) => {
+    handleCollectionChange(collectionIds.filter((x) => x !== id))
+  }
+
+  const commitCollection = (raw: string) => {
+    void (async () => {
+      const trimmed = raw.trim()
+      if (!trimmed || collectionCommitBusy || collectionMutation.isPending) {
+        setCollectionInput('')
+        return
+      }
+      setCollectionCommitBusy(true)
+      try {
+        const selected = new Set(collectionIds)
+        const q = trimmed.toLowerCase()
+        const match = allCollections.find(
+          (c) => !selected.has(c.id) && c.name.toLowerCase() === q,
+        )
+        if (match) {
+          handleCollectionChange([...collectionIds, match.id])
+          setCollectionInput('')
+          return
+        }
+        try {
+          const created = await api.collections.create(trimmed)
+          await queryClient.invalidateQueries({ queryKey: ['collections'] })
+          handleCollectionChange(
+            collectionIds.includes(created.id) ? collectionIds : [...collectionIds, created.id],
+          )
+        } catch {
+          const refreshed = await queryClient.fetchQuery({
+            queryKey: ['collections'],
+            queryFn: () => api.collections.list(),
+          })
+          const found = refreshed.find(
+            (c) => c.name.toLowerCase() === q && !selected.has(c.id),
+          )
+          if (found) handleCollectionChange([...collectionIds, found.id])
+        }
+        setCollectionInput('')
+      } finally {
+        setCollectionCommitBusy(false)
+      }
+    })()
   }
 
   const applyBuckets = (nextPayment: string[], nextMerchant: string[]) => {
@@ -681,8 +936,13 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
     isAliasPending: aliasMutation.isPending,
     collectionIds,
     allCollections,
-    onCollectionChange: handleCollectionChange,
     collectionsBusy: collectionMutation.isPending,
+    collectionInput,
+    setCollectionInput,
+    collectionCommitBusy,
+    pickCollection,
+    commitCollection,
+    removeCollection,
   }
 
   if (isSmall) {
