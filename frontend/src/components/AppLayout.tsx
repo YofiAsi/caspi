@@ -76,6 +76,10 @@ export function AppLayout({ auth }: { auth: AuthContext }) {
 
   useEffect(() => {
     const handleScroll = (e: Event) => {
+      if (window.innerWidth >= 768) {
+        setHeaderVisible(true)
+        return
+      }
       const target = e.target as HTMLElement
       const currentY = target.scrollTop ?? 0
       const delta = currentY - lastScrollY.current
@@ -86,8 +90,15 @@ export function AppLayout({ auth }: { auth: AuthContext }) {
         setHeaderVisible(true)
       }
     }
+    const handleResize = () => {
+      if (window.innerWidth >= 768) setHeaderVisible(true)
+    }
     window.addEventListener('scroll', handleScroll, { capture: true })
-    return () => window.removeEventListener('scroll', handleScroll, { capture: true })
+    window.addEventListener('resize', handleResize)
+    return () => {
+      window.removeEventListener('scroll', handleScroll, { capture: true })
+      window.removeEventListener('resize', handleResize)
+    }
   }, [])
 
   const headerOffset = headerVisible ? 0 : -60
