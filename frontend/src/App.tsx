@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
@@ -6,8 +6,8 @@ import { AuthGate, type AuthContext } from './components/AuthGate'
 import { PaymentList } from './components/PaymentList'
 import { PaymentDetailsPanel } from './components/PaymentDetailsPanel'
 import { BulkActionsPanel } from './components/BulkActionsPanel'
-import { PaymentListSearchFab } from './components/PaymentListSearchFab'
 import { MonthlyBreakdownPage } from './pages/MonthlyBreakdownPage'
+import { SettingsPage } from './pages/SettingsPage'
 import type { Payment, PaymentFilters } from './types'
 
 const queryClient = new QueryClient({
@@ -22,7 +22,7 @@ const queryClient = new QueryClient({
 function HomePage() {
   const [listScrollEl, setListScrollEl] = useState<HTMLDivElement | null>(null)
   const [listTopYear, setListTopYear] = useState<number | null>(null)
-  const [listFilters, setListFilters] = useState<PaymentFilters>({})
+  const listFilters = useMemo<PaymentFilters>(() => ({}), [])
   const [selectedPayments, setSelectedPayments] = useState<Payment[]>([])
 
   const selectedPaymentIds = useMemo(
@@ -30,19 +30,6 @@ function HomePage() {
     [selectedPayments],
   )
   const panelOpen = selectedPayments.length > 0
-
-  const handleSearchQChange = useCallback((q: string | undefined) => {
-    setListFilters((prev) => {
-      if (prev.q === q) return prev
-      const next = { ...prev }
-      if (q === undefined) {
-        delete next.q
-      } else {
-        next.q = q
-      }
-      return next
-    })
-  }, [])
 
   return (
     <div className="h-full min-h-0 flex flex-col">
@@ -72,7 +59,6 @@ function HomePage() {
             </div>
           </div>
         </main>
-        <PaymentListSearchFab searchQ={listFilters.q} onSearchQChange={handleSearchQChange} />
       </div>
       {selectedPayments.length === 1 ? (
         <PaymentDetailsPanel
@@ -96,6 +82,7 @@ function AppRoutes({ auth }: { auth: AuthContext }) {
       <Route element={<AppLayout auth={auth} />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/analysis" element={<MonthlyBreakdownPage />} />
+        <Route path="/settings" element={<SettingsPage auth={auth} />} />
       </Route>
     </Routes>
   )
