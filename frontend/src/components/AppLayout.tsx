@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTheme } from 'next-themes'
@@ -18,6 +18,8 @@ export function AppLayout({ auth }: { auth: AuthContext }) {
   const [showScrapeModal, setShowScrapeModal] = useState(false)
   const [fullscreenActive, setFullscreenActive] = useState(false)
   const [fullscreenSupported, setFullscreenSupported] = useState(false)
+  const [headerVisible, setHeaderVisible] = useState(true)
+  const lastScrollY = useRef(0)
   const queryClient = useQueryClient()
   const { theme, setTheme } = useTheme()
 
@@ -72,12 +74,30 @@ export function AppLayout({ auth }: { auth: AuthContext }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [optionsOpen])
 
+  useEffect(() => {
+    const handleScroll = (e: Event) => {
+      const target = e.target as HTMLElement
+      const currentY = target.scrollTop ?? 0
+      const delta = currentY - lastScrollY.current
+      lastScrollY.current = currentY
+      if (delta > 4) {
+        setHeaderVisible(false)
+      } else if (delta < -4) {
+        setHeaderVisible(true)
+      }
+    }
+    window.addEventListener('scroll', handleScroll, { capture: true })
+    return () => window.removeEventListener('scroll', handleScroll, { capture: true })
+  }, [])
+
+  const headerOffset = headerVisible ? 0 : -60
+
   return (
     <>
       <div className="h-screen flex flex-col bg-canvas">
         <header
-          className="shrink-0 bg-surface border-b border-border px-4 sm:px-6 flex items-center justify-between gap-4 relative z-50"
-          style={{ height: '60px' }}
+          className="fixed top-0 left-0 right-0 bg-surface border-b border-border px-4 sm:px-6 flex items-center justify-between gap-4 z-50"
+          style={{ height: '60px', transform: `translateY(${headerOffset}px)`, transition: 'transform 0.25s ease' }}
         >
           <div className="flex items-center gap-6 min-w-0">
             <Link
@@ -157,7 +177,7 @@ export function AppLayout({ auth }: { auth: AuthContext }) {
           </div>
         </header>
 
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden" style={{ paddingTop: `${60 + headerOffset}px`, transition: 'padding-top 0.25s ease' }}>
           <Outlet />
         </div>
 
@@ -165,12 +185,14 @@ export function AppLayout({ auth }: { auth: AuthContext }) {
           <>
             <button
               type="button"
-              className="fixed inset-x-0 top-[60px] bottom-0 z-40 bg-scrim"
+              className="fixed inset-x-0 bottom-0 z-40 bg-scrim"
+              style={{ top: `${60 + headerOffset}px`, transition: 'top 0.25s ease' }}
               aria-label="Close options"
               onClick={() => setOptionsOpen(false)}
             />
             <div
-              className="fixed top-[60px] right-0 bottom-0 z-50 w-72 max-w-[85vw] bg-surface border-l border-border shadow-xl flex flex-col"
+              className="fixed right-0 bottom-0 z-50 w-72 max-w-[85vw] bg-surface border-l border-border shadow-xl flex flex-col"
+              style={{ top: `${60 + headerOffset}px`, transition: 'top 0.25s ease' }}
               role="dialog"
               aria-modal="true"
               aria-labelledby="options-drawer-title"
