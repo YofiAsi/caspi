@@ -35,6 +35,7 @@ interface Props {
 }
 
 function formatBarAmount(v: number) {
+  if (v >= 1000) return `${(v / 1000).toLocaleString('en-IL', { maximumFractionDigits: 1 })}K`
   return v.toLocaleString('en-IL', { maximumFractionDigits: 0 })
 }
 
@@ -45,7 +46,6 @@ export function MonthlySpendBarChart({ rows, selectedYm, onSelectMonth }: Props)
     label: formatMonthAxisCompact(r.ym),
   }))
 
-  // Use 64px per bar so all labels always fit without skipping
   const barWidth = 64
 
   useEffect(() => {
@@ -69,7 +69,7 @@ export function MonthlySpendBarChart({ rows, selectedYm, onSelectMonth }: Props)
           ₪
         </span>
         <div ref={scrollRef} className="overflow-x-auto pb-2 -mx-1 px-1">
-          <div style={{ width: Math.max(480, rows.length * barWidth), height: 280 }}>
+          <div style={{ width: Math.max(480, rows.length * barWidth), height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={data}
@@ -93,12 +93,21 @@ export function MonthlySpendBarChart({ rows, selectedYm, onSelectMonth }: Props)
                   <LabelList
                     dataKey="total"
                     position="top"
-                    offset={5}
-                    formatter={(v: number) => formatBarAmount(v)}
-                    style={{
-                      fontSize: 10,
-                      fill: 'var(--color-fg-muted, #888)',
-                      fontWeight: 500,
+                    content={(props) => {
+                      const { x, y, width, value } = props as { x: number; y: number; width: number; value: number }
+                      return (
+                        <text
+                          key={`${x}-${y}`}
+                          x={x + width / 2}
+                          y={y - 5}
+                          textAnchor="middle"
+                          fontSize={10}
+                          fontWeight={400}
+                          fill="var(--color-fg-muted, #888)"
+                        >
+                          {formatBarAmount(value)}
+                        </text>
+                      )
                     }}
                   />
                   {data.map((row) => (
