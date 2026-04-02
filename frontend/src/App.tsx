@@ -6,6 +6,8 @@ import { AuthGate, type AuthContext } from './components/AuthGate'
 import { PaymentList } from './components/PaymentList'
 import { PaymentDetailsPanel } from './components/PaymentDetailsPanel'
 import { BulkActionsPanel } from './components/BulkActionsPanel'
+import { CollectionDetailPage } from './pages/CollectionDetailPage'
+import { CollectionsPage } from './pages/CollectionsPage'
 import { MonthlyBreakdownPage } from './pages/MonthlyBreakdownPage'
 import { SettingsPage } from './pages/SettingsPage'
 import type { Payment, PaymentFilters } from './types'
@@ -82,6 +84,8 @@ function AppRoutes({ auth }: { auth: AuthContext }) {
       <Route element={<AppLayout auth={auth} />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/analysis" element={<MonthlyBreakdownPage />} />
+        <Route path="/collections" element={<CollectionsPage />} />
+        <Route path="/collections/:collectionId" element={<CollectionDetailPage />} />
         <Route path="/settings" element={<SettingsPage auth={auth} />} />
       </Route>
     </Routes>

@@ -23,6 +23,21 @@ export interface TagItem {
 export interface CollectionItem {
   id: string
   name: string
+  payment_count: number
+  sum_effective: string
+  first_payment_date: string | null
+  last_payment_date: string | null
+}
+
+export interface CollectionTimeseriesRow {
+  period_start: string
+  sum_effective: string
+  payment_count: number
+}
+
+export interface CollectionTimeseriesResponse {
+  granularity: string
+  rows: CollectionTimeseriesRow[]
 }
 
 export interface Payment {
@@ -83,6 +98,11 @@ export interface PaymentFilters {
   filterTagId?: string
   otherTagIds?: string[]
   includeTotals?: boolean
+  collectionId?: string
+  applyTagCombo?: boolean
+  mergedTagIds?: string[]
+  applyTagComboOther?: boolean
+  tagComboExcludes?: string[][]
 }
 
 export interface PaymentListCursor {
