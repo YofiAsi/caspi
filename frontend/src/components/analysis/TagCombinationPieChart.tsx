@@ -44,8 +44,7 @@ export function TagCombinationPieChart({ slices, selection, onSelect }: Props) {
 
   return (
     <div className="w-full min-w-0">
-      <p className="text-xs font-medium text-fg-muted mb-2">Tag combinations this month</p>
-      <div className="h-[240px] w-full max-w-md mx-auto">
+      <div className="h-[220px] w-full max-w-md mx-auto">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -82,7 +81,7 @@ export function TagCombinationPieChart({ slices, selection, onSelect }: Props) {
             </Pie>
             <Tooltip
               formatter={(v: number, _n: string, item: { payload?: { name: string } }) => [
-                `${v.toFixed(2)} ILS`,
+                `₪${v.toLocaleString('en-IL', { maximumFractionDigits: 0 })}`,
                 item.payload?.name ?? '',
               ]}
               contentStyle={{
@@ -95,16 +94,32 @@ export function TagCombinationPieChart({ slices, selection, onSelect }: Props) {
           </PieChart>
         </ResponsiveContainer>
       </div>
-      <ul className="mt-2 space-y-1 text-xs text-fg-secondary max-w-md mx-auto">
-        {slices.map((s) => {
+      <ul className="mt-1 space-y-0.5 text-xs text-fg-secondary max-w-md mx-auto">
+        {slices.map((s, i) => {
           const pct = (Number(s.fraction) * 100).toFixed(1)
+          const amount = Number(s.sum_effective).toLocaleString('en-IL', { maximumFractionDigits: 0 })
           const sel = selectionKey(rowToSelection(s)) === cur
+          const color = COLORS[i % COLORS.length]
           return (
             <li
               key={`${s.label}-${s.other_tag_ids.join('-')}`}
-              className={sel ? 'font-semibold text-fg' : ''}
+              className={`flex items-center gap-2 cursor-pointer rounded-lg px-2 py-2.5 transition-colors hover:bg-hover-surface ${
+                sel ? 'font-semibold text-fg bg-accent-soft/40 border-l-2 border-accent' : ''
+              }`}
+              onClick={() => {
+                const next = rowToSelection(s)
+                const nk = selectionKey(next)
+                if (nk === cur) onSelect(null)
+                else onSelect(next)
+              }}
             >
-              <span className="text-fg-muted">{pct}%</span> · {s.label}
+              <span
+                className="h-3 w-3 rounded-full shrink-0"
+                style={{ background: color }}
+              />
+              <span className="text-fg-muted w-12 shrink-0">{pct}%</span>
+              <span className="flex-1 truncate">{s.label}</span>
+              <span className="text-fg-muted font-normal shrink-0">₪{amount}</span>
             </li>
           )
         })}

@@ -77,7 +77,7 @@ export function AnalysisPaymentList({
   if (payments.length === 0) {
     return (
       <div className="py-16 text-center">
-        <p className="text-fg-subtle text-sm">No payments for this selection.</p>
+        <p className="text-fg-subtle text-sm">No payments match this selection.</p>
       </div>
     )
   }
