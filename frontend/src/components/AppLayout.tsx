@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTheme } from 'next-themes'
 import { logoutAndRefresh, type AuthContext } from './AuthGate'
@@ -13,6 +13,7 @@ function getFullscreenElement(): Element | null {
 const THEME_OPTIONS = ['light', 'dark', 'system'] as const
 
 export function AppLayout({ auth }: { auth: AuthContext }) {
+  const { pathname } = useLocation()
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [showScrapeModal, setShowScrapeModal] = useState(false)
   const [fullscreenActive, setFullscreenActive] = useState(false)
@@ -81,10 +82,12 @@ export function AppLayout({ auth }: { auth: AuthContext }) {
           <div className="flex items-center gap-6 min-w-0">
             <Link
               to="/"
-              className="flex items-center gap-2 text-xl font-bold text-fg tracking-tight hover:text-fg-secondary transition-colors shrink-0"
+              className="flex items-center gap-2 text-xl font-bold text-fg tracking-tight hover:text-fg-secondary transition-colors shrink-0 min-w-0"
             >
               <img src="/favicon.png" alt="" className="h-8 w-8 shrink-0 object-contain" aria-hidden />
-              Caspi
+              <span className="truncate">
+                {pathname === '/analysis' ? 'Monthly breakdown' : 'Caspi'}
+              </span>
             </Link>
             <nav className="flex items-center gap-1 text-sm font-medium" aria-label="Main">
               <NavLink
