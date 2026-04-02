@@ -43,8 +43,8 @@ export function TagCombinationPieChart({ slices, selection, onSelect }: Props) {
   }))
 
   return (
-    <div className="w-full min-w-0">
-      <div className="h-[220px] w-full max-w-md mx-auto">
+    <div className="flex items-center gap-3 w-full min-w-0">
+      <div className="h-[180px] w-[180px] shrink-0">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -53,8 +53,8 @@ export function TagCombinationPieChart({ slices, selection, onSelect }: Props) {
               nameKey="name"
               cx="50%"
               cy="50%"
-              innerRadius={52}
-              outerRadius={88}
+              innerRadius={46}
+              outerRadius={78}
               paddingAngle={2}
               onClick={(entry) => {
                 const row = (entry as { row?: MonthTagSliceRow }).row
@@ -94,16 +94,15 @@ export function TagCombinationPieChart({ slices, selection, onSelect }: Props) {
           </PieChart>
         </ResponsiveContainer>
       </div>
-      <ul className="mt-1 space-y-0.5 text-xs text-fg-secondary max-w-md mx-auto">
+      <ul className="flex-1 min-w-0 space-y-0.5 text-xs text-fg-secondary">
         {slices.map((s, i) => {
           const pct = (Number(s.fraction) * 100).toFixed(1)
-          const amount = Number(s.sum_effective).toLocaleString('en-IL', { maximumFractionDigits: 0 })
           const sel = selectionKey(rowToSelection(s)) === cur
           const color = COLORS[i % COLORS.length]
           return (
             <li
               key={`${s.label}-${s.other_tag_ids.join('-')}`}
-              className={`flex items-center gap-2 cursor-pointer rounded-lg px-2 py-2.5 transition-colors hover:bg-hover-surface ${
+              className={`flex items-center gap-2 cursor-pointer rounded-lg px-2 py-2 transition-colors hover:bg-hover-surface ${
                 sel ? 'font-semibold text-fg bg-accent-soft/40 border-l-2 border-accent' : ''
               }`}
               onClick={() => {
@@ -113,13 +112,9 @@ export function TagCombinationPieChart({ slices, selection, onSelect }: Props) {
                 else onSelect(next)
               }}
             >
-              <span
-                className="h-3 w-3 rounded-full shrink-0"
-                style={{ background: color }}
-              />
-              <span className="text-fg-muted w-12 shrink-0">{pct}%</span>
+              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: color }} />
               <span className="flex-1 truncate">{s.label}</span>
-              <span className="text-fg-muted font-normal shrink-0">₪{amount}</span>
+              <span className="text-fg-muted font-normal shrink-0">{pct}%</span>
             </li>
           )
         })}
