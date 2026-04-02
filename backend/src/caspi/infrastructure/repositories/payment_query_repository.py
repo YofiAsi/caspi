@@ -11,6 +11,7 @@ from sqlalchemy.orm import joinedload, selectinload
 from caspi.infrastructure.models import (
     MerchantModel,
     MerchantTagLinkModel,
+    PaymentCollectionModel,
     PaymentModel,
     PaymentTagModel,
     TagModel,
@@ -70,6 +71,82 @@ def _parse_sort(raw: Optional[str]) -> PaymentListSort:
         return PaymentListSort.date_desc
 
 
+def _exact_merged_tag_match_conditions(target: list[UUID]) -> list:
+    u = sorted(set(target), key=lambda x: str(x))
+    conds = []
+    if u:
+        conds.append(
+            not_(
+                exists(
+                    select(1).where(
+                        PaymentTagModel.payment_id == PaymentModel.payment_id,
+                        PaymentTagModel.tag_id.notin_(u),
+                    )
+                )
+            )
+        )
+        conds.append(
+            not_(
+                exists(
+                    select(1).where(
+                        MerchantTagLinkModel.merchant_id == PaymentModel.merchant_id,
+                        MerchantTagLinkModel.tag_id.notin_(u),
+                    )
+                )
+            )
+        )
+    else:
+        conds.append(
+            not_(exists(select(1).where(PaymentTagModel.payment_id == PaymentModel.payment_id)))
+        )
+        conds.append(
+            not_(
+                exists(
+                    select(1).where(MerchantTagLinkModel.merchant_id == PaymentModel.merchant_id)
+                )
+            )
+        )
+
+    if u:
+        pt = (
+            select(PaymentTagModel.tag_id)
+            .where(PaymentTagModel.payment_id == PaymentModel.payment_id)
+            .correlate(PaymentModel)
+        )
+        mt = (
+            select(MerchantTagLinkModel.tag_id)
+            .where(MerchantTagLinkModel.merchant_id == PaymentModel.merchant_id)
+            .correlate(PaymentModel)
+        )
+        tag_union = union_all(pt, mt).subquery()
+        cnt_expr = (
+            select(func.count(func.distinct(tag_union.c.tag_id)))
+            .select_from(tag_union)
+            .scalar_subquery()
+        )
+        conds.append(cnt_expr == len(u))
+
+        for tid in u:
+            conds.append(
+                or_(
+                    exists(
+                        select(1).where(
+                            PaymentTagModel.payment_id == PaymentModel.payment_id,
+                            PaymentTagModel.tag_id == tid,
+                        )
+                    ),
+                    exists(
+                        select(1).where(
+                            MerchantTagLinkModel.merchant_id == PaymentModel.merchant_id,
+                            MerchantTagLinkModel.tag_id == tid,
+                        )
+                    ),
+                )
+            )
+
+    return conds
+
+
 class SqlPaymentQueryRepository:
     def __init__(self, session: AsyncSession):
         self._session = session
@@ -96,8 +173,23 @@ class SqlPaymentQueryRepository:
         filter_tag_id: Optional[UUID],
         other_tag_ids: Optional[list[UUID]],
         apply_tag_slice: bool,
+        collection_id: Optional[UUID] = None,
+        apply_tag_combo: bool = False,
+        merged_tag_ids: Optional[list[UUID]] = None,
+        apply_tag_combo_other: bool = False,
+        tag_combo_excludes: Optional[list[list[UUID]]] = None,
     ) -> list:
         conditions = []
+
+        if collection_id is not None:
+            conditions.append(
+                exists(
+                    select(1).where(
+                        PaymentCollectionModel.payment_id == PaymentModel.payment_id,
+                        PaymentCollectionModel.collection_id == collection_id,
+                    )
+                )
+            )
 
         include_ids = _parse_tag_uuids(include_tags)
         for tid in include_ids:
@@ -222,6 +314,15 @@ class SqlPaymentQueryRepository:
                 )
                 conditions.append(has_o)
 
+        if apply_tag_combo:
+            combo = list(merged_tag_ids) if merged_tag_ids is not None else []
+            conditions.extend(_exact_merged_tag_match_conditions(combo))
+
+        if apply_tag_combo_other:
+            excludes = tag_combo_excludes or []
+            for ex in excludes:
+                conditions.append(not_(and_(*_exact_merged_tag_match_conditions(ex))))
+
         return conditions
 
     def _cursor_condition(
@@ -321,6 +422,11 @@ class SqlPaymentQueryRepository:
         after_payment_id: Optional[UUID] = None,
         after_effective_amount: Optional[Decimal] = None,
         after_merchant_key: Optional[str] = None,
+        collection_id: Optional[UUID] = None,
+        apply_tag_combo: bool = False,
+        merged_tag_ids: Optional[list[UUID]] = None,
+        apply_tag_combo_other: bool = False,
+        tag_combo_excludes: Optional[list[list[UUID]]] = None,
     ) -> list[PaymentModel]:
         sort_e = _parse_sort(sort)
         stmt = select(PaymentModel).outerjoin(MerchantModel, MerchantModel.id == PaymentModel.merchant_id)
@@ -337,6 +443,11 @@ class SqlPaymentQueryRepository:
             filter_tag_id=filter_tag_id,
             other_tag_ids=other_tag_ids,
             apply_tag_slice=apply_tag_slice,
+            collection_id=collection_id,
+            apply_tag_combo=apply_tag_combo,
+            merged_tag_ids=merged_tag_ids,
+            apply_tag_combo_other=apply_tag_combo_other,
+            tag_combo_excludes=tag_combo_excludes,
         )
         if conditions:
             stmt = stmt.where(and_(*conditions))
@@ -374,6 +485,11 @@ class SqlPaymentQueryRepository:
         filter_tag_id: Optional[UUID] = None,
         other_tag_ids: Optional[list[UUID]] = None,
         apply_tag_slice: bool = False,
+        collection_id: Optional[UUID] = None,
+        apply_tag_combo: bool = False,
+        merged_tag_ids: Optional[list[UUID]] = None,
+        apply_tag_combo_other: bool = False,
+        tag_combo_excludes: Optional[list[list[UUID]]] = None,
     ) -> tuple[int, Decimal]:
         eff = _effective_amount_expr()
         stmt = (
@@ -394,6 +510,11 @@ class SqlPaymentQueryRepository:
             filter_tag_id=filter_tag_id,
             other_tag_ids=other_tag_ids,
             apply_tag_slice=apply_tag_slice,
+            collection_id=collection_id,
+            apply_tag_combo=apply_tag_combo,
+            merged_tag_ids=merged_tag_ids,
+            apply_tag_combo_other=apply_tag_combo_other,
+            tag_combo_excludes=tag_combo_excludes,
         )
         if conditions:
             stmt = stmt.where(and_(*conditions))

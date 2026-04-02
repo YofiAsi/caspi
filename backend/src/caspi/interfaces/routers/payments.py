@@ -37,6 +37,34 @@ def _parse_uuid_list(raw: Optional[list[str]]) -> Optional[list[UUID]]:
     return out
 
 
+def _parse_collection_id_param(collection_id: Optional[str]) -> Optional[UUID]:
+    if collection_id is None:
+        return None
+    try:
+        return UUID(collection_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid collection_id") from None
+
+
+def _parse_tag_combo_excludes(raw: Optional[list[str]]) -> list[list[UUID]]:
+    if not raw:
+        return []
+    out: list[list[UUID]] = []
+    for item in raw:
+        parts = [p.strip() for p in item.split(",") if p.strip()]
+        row: list[UUID] = []
+        for p in parts:
+            try:
+                row.append(UUID(p))
+            except ValueError:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Invalid tag id in tag_combo_exclude: {p}",
+                ) from None
+        out.append(row)
+    return out
+
+
 @router.get("/summary", response_model=PaymentSummaryResponse)
 async def payments_summary(
     include_tags: Optional[list[str]] = Query(default=None),
@@ -46,8 +74,32 @@ async def payments_summary(
     amount_min: Optional[Decimal] = None,
     amount_max: Optional[Decimal] = None,
     tagged_only: bool = False,
+    collection_id: Optional[str] = Query(default=None),
+    apply_tag_combo: bool = False,
+    merged_tag_ids: Optional[list[str]] = Query(default=None),
+    apply_tag_combo_other: bool = False,
+    tag_combo_exclude: Optional[list[str]] = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ):
+    if apply_tag_combo and apply_tag_combo_other:
+        raise HTTPException(
+            status_code=422,
+            detail="apply_tag_combo and apply_tag_combo_other cannot both be true",
+        )
+    if apply_tag_combo_other:
+        excludes = _parse_tag_combo_excludes(tag_combo_exclude)
+        if not excludes:
+            raise HTTPException(
+                status_code=422,
+                detail="tag_combo_exclude is required when apply_tag_combo_other is true",
+            )
+    else:
+        excludes = _parse_tag_combo_excludes(tag_combo_exclude)
+
+    combo_ids = _parse_uuid_list(merged_tag_ids) if merged_tag_ids else []
+    if combo_ids is None:
+        combo_ids = []
+
     return await payment_summary_for_filters(
         db,
         include_tags=include_tags,
@@ -57,6 +109,11 @@ async def payments_summary(
         amount_min=amount_min,
         amount_max=amount_max,
         tagged_only=tagged_only or None,
+        collection_id=_parse_collection_id_param(collection_id),
+        apply_tag_combo=apply_tag_combo,
+        merged_tag_ids=combo_ids if apply_tag_combo else None,
+        apply_tag_combo_other=apply_tag_combo_other,
+        tag_combo_excludes=excludes if apply_tag_combo_other else None,
     )
 
 
@@ -100,6 +157,11 @@ async def list_payments(
     after_effective_amount: Optional[Decimal] = None,
     after_merchant_key: Optional[str] = None,
     include_totals: bool = False,
+    collection_id: Optional[str] = Query(default=None),
+    apply_tag_combo: bool = False,
+    merged_tag_ids: Optional[list[str]] = Query(default=None),
+    apply_tag_combo_other: bool = False,
+    tag_combo_exclude: Optional[list[str]] = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ):
     if (after_date is None) != (after_payment_id is None):
@@ -107,6 +169,21 @@ async def list_payments(
             status_code=422,
             detail="after_date and after_payment_id must be supplied together",
         )
+
+    if apply_tag_combo and apply_tag_combo_other:
+        raise HTTPException(
+            status_code=422,
+            detail="apply_tag_combo and apply_tag_combo_other cannot both be true",
+        )
+    if apply_tag_combo_other:
+        excludes = _parse_tag_combo_excludes(tag_combo_exclude)
+        if not excludes:
+            raise HTTPException(
+                status_code=422,
+                detail="tag_combo_exclude is required when apply_tag_combo_other is true",
+            )
+    else:
+        excludes = _parse_tag_combo_excludes(tag_combo_exclude)
 
     ft_uuid: Optional[UUID] = None
     if filter_tag_id is not None:
@@ -127,6 +204,10 @@ async def list_payments(
         slice_other = _parse_uuid_list(other_tag_ids)
         if slice_other is None:
             slice_other = []
+
+    combo_ids = _parse_uuid_list(merged_tag_ids) if merged_tag_ids else []
+    if combo_ids is None:
+        combo_ids = []
 
     return await list_payments_page(
         db,
@@ -149,6 +230,11 @@ async def list_payments(
         after_effective_amount=after_effective_amount,
         after_merchant_key=after_merchant_key,
         include_totals=include_totals,
+        collection_id=_parse_collection_id_param(collection_id),
+        apply_tag_combo=apply_tag_combo,
+        merged_tag_ids=combo_ids if apply_tag_combo else None,
+        apply_tag_combo_other=apply_tag_combo_other,
+        tag_combo_excludes=excludes if apply_tag_combo_other else None,
     )
 
 
