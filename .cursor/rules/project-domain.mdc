@@ -1,0 +1,62 @@
+---
+description: Caspi domain model — expenses, tags, merchants, collections, routine
+alwaysApply: true
+---
+
+# Project domain
+
+## Expense
+
+A single credit card transaction.
+
+| Field | Meaning |
+|-------|---------|
+| Date | Transaction date |
+| Merchant | Merchant reference |
+| Full amount | Original value on the statement |
+| Share | User’s portion (default 100%) |
+| Personal amount | `full amount × share` — **used in all analytics** |
+| Tag ids | List of tag ids |
+| Collection id | Optional; omit = routine |
+
+Other fields (original value, currency, notes, etc.) stay as implemented.
+
+- Amounts may be **negative** (refunds); they reduce totals in analytics. UI: visually distinct (e.g. green + refund indicator).
+- **At most one collection.** No collection ⇒ **routine**.
+- Creating from a merchant with a **default share**: apply share silently; compute personal amount; **full amount is always preserved**.
+- UI when share is below 100%: show both full and personal (e.g. `₪300 · your share ₪100`).
+
+## Tag
+
+- **Unique name**; `tags` table is the single source of truth (fast lookup, quick-select).
+- **Flat** — no hierarchy.
+- Expense can have any number of tags.
+- Add-by-name: **reuse existing id** if name exists; no duplicate rows.
+
+## Merchant
+
+Business or payee.
+
+- **Canonical name** — raw statement string (e.g. `AMZN MKTP US*1234`); **unique**.
+- **Alias** — user-facing name (e.g. `Amazon`).
+- **Tag ids** — default tags for this merchant (**read-time** on expenses).
+- **Optional default share** — new expenses from this merchant inherit share and personal amount; **does not retroactively change existing expenses**.
+
+**Read API:** expense responses expose two lists (do not merge on the server):
+
+1. **Expense tags** — on the expense row  
+2. **Merchant tags** — from the expense’s merchant at read time  
+
+Client merges and dedupes for display. A tag may appear in both lists. Merchant tag changes apply immediately for all expenses from that merchant (read-time).
+
+## Collection
+
+Named group for one bounded event or project (e.g. `USA trip 2025`, `kitchen renovation`). **Unique name**; optional date range.
+
+- Expense **at most one** collection.
+- Collection expenses are **isolated from routine analytics** (excluded from monthly routine breakdown).
+- Answers: cost of that event and its breakdown.
+
+## Routine
+
+Not a stored entity. **All expenses with no collection** — day-to-day spend. **Routine analytics** (e.g. monthly breakdown by tag) use **only** this subset.
