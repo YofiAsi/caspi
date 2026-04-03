@@ -54,9 +54,14 @@ services:
       - "3000"
     depends_on:
       - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.frontend.rule=Host(`yourdomain.com`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
     networks:
       - app
-      - coolify
+      - dokploy-network
 
 volumes:
   postgres_data:
@@ -64,6 +69,6 @@ volumes:
 networks:
   app:
     driver: bridge
-  coolify:
+  dokploy-network:
     external: true
-    name: coolify
+    name: dokploy-network
