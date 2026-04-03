@@ -11,4 +11,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn caspi.interfaces.app:app --host 0.0.0.0 --port 8000"]
+CMD ["uvicorn", "caspi.app:app", "--host", "0.0.0.0", "--port", "8000"]

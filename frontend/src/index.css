@@ -1,142 +1,28 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
-@custom-variant dark (&:where(.dark, .dark *));
-
-@utility pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: system-ui, sans-serif;
 }
 
-@theme {
-  --color-canvas: var(--canvas);
-  --color-surface: var(--surface);
-  --color-muted: var(--muted);
-  --color-muted-hover: var(--muted-hover);
-  --color-hover-surface: var(--hover-surface);
-  --color-active-surface: var(--active-surface);
-  --color-border: var(--border);
-  --color-border-subtle: var(--border-subtle);
-  --color-fg: var(--fg);
-  --color-fg-secondary: var(--fg-secondary);
-  --color-fg-muted: var(--fg-muted);
-  --color-fg-subtle: var(--fg-subtle);
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-on-primary: var(--on-primary);
-  --color-accent-soft: var(--accent-soft);
-  --color-accent-soft-fg: var(--accent-soft-fg);
-  --color-accent-soft-hover: var(--accent-soft-hover);
-  --color-accent-nav: var(--accent-nav);
-  --color-accent-nav-fg: var(--accent-nav-fg);
-  --color-ring: var(--ring);
-  --color-input-bg: var(--input-bg);
-  --color-track: var(--track);
-  --color-toggle-off: var(--toggle-off);
-  --color-danger-bg: var(--danger-bg);
-  --color-danger-fg: var(--danger-fg);
-  --color-danger-text: var(--danger-text);
-  --color-success-bg: var(--success-bg);
-  --color-success-fg: var(--success-fg);
-  --color-success-text: var(--success-text);
-  --color-warning-bg: var(--warning-bg);
-  --color-warning-fg: var(--warning-fg);
-  --color-warning-border: var(--warning-border);
-  --color-info: var(--info);
-  --color-emerald-link: var(--emerald-link);
-  --color-accent-bar: var(--accent-bar);
-  --color-scrim: var(--scrim);
-  --color-checkbox-border: var(--checkbox-border);
-  --color-disabled-fg: var(--disabled-fg);
+.shell {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
 }
 
-:root {
-  --canvas: #f9fafb;
-  --surface: #ffffff;
-  --muted: #f9fafb;
-  --muted-hover: #f3f4f6;
-  --hover-surface: #f9fafb;
-  --active-surface: #f3f4f6;
-  --border: #e5e7eb;
-  --border-subtle: #f3f4f6;
-  --fg: #111827;
-  --fg-secondary: #374151;
-  --fg-muted: #4b5563;
-  --fg-subtle: #9ca3af;
-  --accent: #4f46e5;
-  --accent-hover: #4338ca;
-  --on-primary: #ffffff;
-  --accent-soft: #eef2ff;
-  --accent-soft-fg: #4338ca;
-  --accent-soft-hover: #e0e7ff;
-  --accent-nav: #e0e7ff;
-  --accent-nav-fg: #312e81;
-  --ring: #818cf8;
-  --input-bg: #ffffff;
-  --track: #f3f4f6;
-  --toggle-off: #e5e7eb;
-  --danger-bg: #fef2f2;
-  --danger-fg: #b91c1c;
-  --danger-text: #dc2626;
-  --success-bg: #ecfdf5;
-  --success-fg: #047857;
-  --success-text: #059669;
-  --warning-bg: #fffbeb;
-  --warning-fg: #92400e;
-  --warning-border: #fde68a;
-  --info: #3b82f6;
-  --emerald-link: #059669;
-  --accent-bar: #818cf8;
-  --scrim: rgb(0 0 0 / 0.4);
-  --checkbox-border: #d1d5db;
-  --disabled-fg: #d1d5db;
+.shell h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
 }
 
-.dark {
-  --canvas: #09090b;
-  --surface: #18181b;
-  --muted: #18181b;
-  --muted-hover: #27272a;
-  --hover-surface: #27272a;
-  --active-surface: #3f3f46;
-  --border: #3f3f46;
-  --border-subtle: #27272a;
-  --fg: #fafafa;
-  --fg-secondary: #d4d4d8;
-  --fg-muted: #a1a1aa;
-  --fg-subtle: #71717a;
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --on-primary: #ffffff;
-  --accent-soft: rgb(99 102 241 / 0.18);
-  --accent-soft-fg: #a5b4fc;
-  --accent-soft-hover: rgb(99 102 241 / 0.28);
-  --accent-nav: rgb(99 102 241 / 0.22);
-  --accent-nav-fg: #e0e7ff;
-  --ring: #818cf8;
-  --input-bg: #27272a;
-  --track: #3f3f46;
-  --toggle-off: #52525b;
-  --danger-bg: rgb(239 68 68 / 0.15);
-  --danger-fg: #fca5a5;
-  --danger-text: #f87171;
-  --success-bg: rgb(16 185 129 / 0.15);
-  --success-fg: #6ee7b7;
-  --success-text: #34d399;
-  --warning-bg: rgb(245 158 11 / 0.15);
-  --warning-fg: #fcd34d;
-  --warning-border: rgb(245 158 11 / 0.35);
-  --info: #60a5fa;
-  --emerald-link: #34d399;
-  --accent-bar: #818cf8;
-  --scrim: rgb(0 0 0 / 0.65);
-  --checkbox-border: #52525b;
-  --disabled-fg: #52525b;
-}
-
-@layer base {
-  html {
-    color-scheme: light;
-  }
-  html.dark {
-    color-scheme: dark;
-  }
+.shell p {
+  margin: 0;
+  color: #64748b;
 }

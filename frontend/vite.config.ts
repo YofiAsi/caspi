@@ -29,7 +29,6 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
-    allowedHosts: ['bradley-precaudal-snuffly.ngrok-free.dev'],
     proxy: {
       '/api': {
         target: apiTarget,
