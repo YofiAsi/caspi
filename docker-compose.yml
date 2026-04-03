@@ -54,11 +54,6 @@ services:
       - "3000"
     depends_on:
       - backend
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=dokploy-network"
-      - "traefik.http.routers.caspi-frontend.rule=Host(`caspi.website`)"
-      - "traefik.http.services.caspi-frontend.loadbalancer.server.port=80"
     networks:
       - app
       - dokploy-network
