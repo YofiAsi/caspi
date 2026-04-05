@@ -88,6 +88,7 @@ async def list_expenses(
     tag_id: uuid.UUID | None = None,
     collection_id: str | None = None,
     payment_type: str | None = None,
+    untagged: bool = False,
     sort: str = "-date",
     limit: int = Query(50, le=200),
     offset: int = Query(0, ge=0),
@@ -108,6 +109,12 @@ async def list_expenses(
         base = base.where(ExpenseModel.collection_id.is_(None))
     elif collection_id:
         base = base.where(ExpenseModel.collection_id == uuid.UUID(collection_id))
+    if untagged:
+        # Expenses with no direct tags AND whose merchant has no tags
+        base = base.where(
+            ~ExpenseModel.id.in_(select(expense_tags.c.expense_id))
+            & ~ExpenseModel.merchant_id.in_(select(merchant_tags.c.merchant_id))
+        )
     if tag_id:
         # Match expense tags OR merchant tags
         base = base.where(

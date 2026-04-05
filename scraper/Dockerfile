@@ -1,7 +1,7 @@
 FROM node:22-slim AS ibs-builder
 
 ARG IBS_REPO=https://github.com/YofiAsi/israeli-bank-scrapers.git
-ARG IBS_REF=dd10f8da31bff61ac858f11d4c0575cdd7629cf2
+ARG IBS_REF=274519458653fdc7c52b013a01f3d617b3ffb170
 
 ENV DEBIAN_FRONTEND=noninteractive
 
