@@ -8,6 +8,7 @@ interface Props {
   payments: Payment[]
   isPending: boolean
   isError: boolean
+  isFetching?: boolean
   hasNextPage: boolean
   isFetchingNextPage: boolean
   fetchNextPage: () => void
@@ -20,6 +21,7 @@ export function AnalysisPaymentList({
   payments,
   isPending,
   isError,
+  isFetching,
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
@@ -58,7 +60,7 @@ export function AnalysisPaymentList({
     return () => observer.disconnect()
   }, [scrollRoot, hasNextPage, isFetchingNextPage, fetchNextPage, payments.length])
 
-  if (isPending) {
+  if (isPending && payments.length === 0) {
     return (
       <div className="flex justify-center py-16">
         <div className="h-6 w-6 rounded-full border-2 border-ring border-t-transparent animate-spin" />
@@ -82,11 +84,14 @@ export function AnalysisPaymentList({
     )
   }
 
+  const refetching = isFetching && !isPending
+
   return (
-    <div className="divide-y divide-border-subtle">
-      {payments.map((payment) => (
-        <div key={payment.payment_id}>
+    <div className={`transition-opacity duration-200 ${refetching ? 'opacity-60' : ''}`}>
+      <div className="bg-surface rounded-[20px] overflow-hidden" style={{ border: '0.5px solid rgba(255,255,255,0.1)' }}>
+        {payments.map((payment) => (
           <PaymentCard
+            key={payment.payment_id}
             payment={payment}
             tagLabels={tagLabels}
             merchantLine="alias_first"
@@ -95,9 +100,10 @@ export function AnalysisPaymentList({
               else onSelectPayment(payment)
             }}
             isSelected={selectedPaymentId === payment.payment_id}
+            noLeftPad
           />
-        </div>
-      ))}
+        ))}
+      </div>
       <div ref={sentinelRef} className="h-1 w-full" aria-hidden />
       {isFetchingNextPage ? (
         <div className="flex justify-center py-6">

@@ -273,6 +273,70 @@ async def month_tag_slices_for_month(
     )
 
 
+async def payment_timeseries(
+    db: AsyncSession,
+    *,
+    granularity: str,
+    include_tags: Optional[list[str]] = None,
+    exclude_tags: Optional[list[str]] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    amount_min: Optional[Decimal] = None,
+    amount_max: Optional[Decimal] = None,
+    tagged_only: Optional[bool] = None,
+    currency: Optional[str] = None,
+    collection_id: Optional[UUID] = None,
+    apply_tag_combo: bool = False,
+    merged_tag_ids: Optional[list[UUID]] = None,
+    apply_tag_combo_other: bool = False,
+    tag_combo_excludes: Optional[list[list[UUID]]] = None,
+) -> list[tuple[date, Decimal, int]]:
+    query_repo = SqlPaymentQueryRepository(db)
+    return await query_repo.timeseries(
+        granularity=granularity,
+        include_tags=include_tags,
+        exclude_tags=exclude_tags,
+        date_from=date_from,
+        date_to=date_to,
+        amount_min=amount_min,
+        amount_max=amount_max,
+        tagged_only=tagged_only,
+        currency=currency,
+        collection_id=collection_id,
+        apply_tag_combo=apply_tag_combo,
+        merged_tag_ids=merged_tag_ids,
+        apply_tag_combo_other=apply_tag_combo_other,
+        tag_combo_excludes=tag_combo_excludes,
+    )
+
+
+async def period_tag_slices(
+    db: AsyncSession,
+    *,
+    date_from: date,
+    date_to: date,
+    filter_tag_id: str,
+) -> MonthTagSlicesResponse:
+    responses = await list_payment_responses(
+        db,
+        include_tags=[filter_tag_id],
+        date_from=date_from,
+        date_to=date_to,
+        currency="ILS",
+    )
+    ids: set[str] = {filter_tag_id}
+    for r in responses:
+        ids.update(r.payment_tags)
+        ids.update(r.merchant_tags)
+    tag_name_by_id = await _tag_name_by_id(db, ids)
+    return aggregate_month_tag_slices(
+        responses,
+        filter_tag_id=filter_tag_id,
+        tag_name_by_id=tag_name_by_id,
+        currency="ILS",
+    )
+
+
 async def collection_tag_slices(
     db: AsyncSession,
     *,

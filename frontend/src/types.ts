@@ -190,3 +190,16 @@ export interface PaymentSummary {
   top_merchants: MerchantSummaryRow[]
   by_month: MonthSummaryRow[]
 }
+
+export type AnalyticsGranularity = 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'lifetime'
+
+export interface PaymentTimeseriesRow {
+  period_start: string
+  sum_effective: string
+  payment_count: number
+}
+
+export interface PaymentTimeseriesResponse {
+  granularity: string
+  rows: PaymentTimeseriesRow[]
+}

@@ -8,6 +8,7 @@ import type {
   PaymentListCursor,
   PaymentListPage,
   PaymentSummary,
+  PaymentTimeseriesResponse,
   ScrapeResult,
   TagItem,
 } from '../types'
@@ -136,6 +137,26 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify(body),
       }),
+    timeseries: (
+      granularity: 'weekly' | 'monthly' | 'quarterly' | 'yearly',
+      filters?: PaymentFilters,
+    ): Promise<PaymentTimeseriesResponse> => {
+      const params = new URLSearchParams()
+      params.set('granularity', granularity)
+      appendPaymentFilters(params, filters)
+      return request(`/payments/timeseries?${params.toString()}`)
+    },
+    periodTagSlices: (args: {
+      dateFrom: string
+      dateTo: string
+      filterTagId: string
+    }): Promise<MonthTagSlicesResponse> => {
+      const params = new URLSearchParams()
+      params.set('date_from', args.dateFrom)
+      params.set('date_to', args.dateTo)
+      params.set('filter_tag_id', args.filterTagId)
+      return request(`/payments/analysis/period-tag-slices?${params.toString()}`)
+    },
     monthTagSlices: (args: {
       year: number
       month: number

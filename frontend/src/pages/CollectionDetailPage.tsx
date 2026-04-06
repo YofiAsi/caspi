@@ -160,11 +160,11 @@ export function CollectionDetailPage() {
   }
 
   return (
-    <div className="h-full min-h-0 flex flex-col">
+    <div className="h-full min-h-0 flex flex-col animate-fadeUp">
       <div
         className={`flex-1 min-h-0 flex flex-col transition-[padding] duration-200 ${panelOpen ? 'md:pr-[352px]' : ''}`}
       >
-        <main className="flex-1 overflow-hidden max-w-5xl w-full mx-auto bg-surface sm:my-4 sm:rounded-2xl sm:shadow-sm sm:border sm:border-border flex flex-col">
+        <main className="flex-1 overflow-hidden max-w-5xl w-full mx-auto bg-surface sm:my-4 sm:rounded-2xl sm:shadow-md sm:shadow-black/5 dark:sm:shadow-black/20 sm:border sm:border-border flex flex-col">
           <div ref={setListScrollEl} className="flex-1 overflow-y-auto min-h-0 px-4 py-4 pb-8 space-y-5">
             {!meta ? (
               <div className="flex justify-center py-12">

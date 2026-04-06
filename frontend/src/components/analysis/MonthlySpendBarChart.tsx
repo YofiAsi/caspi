@@ -8,45 +8,28 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { parseYearMonth } from '../../utils/monthBounds'
 
-function formatMonthAxisCompact(ym: string) {
-  const { year, month } = parseYearMonth(ym)
-  const currentYear = new Date().getFullYear()
-  const date = new Date(year, month - 1, 1)
-  const monthLabel = new Intl.DateTimeFormat('en-GB', { month: 'short' }).format(date)
-  if (year !== currentYear) {
-    return `${monthLabel} '${String(year).slice(-2)}`
-  }
-  return monthLabel
-}
-
-export interface BarMonthRow {
-  ym: string
-  year: number
-  month: number
+export interface BarPeriodRow {
+  periodKey: string
+  label: string
   total: number
 }
 
 interface Props {
-  rows: BarMonthRow[]
-  selectedYm: string | null
-  onSelectMonth: (ym: string) => void
+  rows: BarPeriodRow[]
+  selectedPeriodKey: string | null
+  onSelectPeriod: (key: string) => void
+  barSlotWidth?: number
+  barSize?: number
 }
 
 function formatBarAmount(v: number) {
-  if (v >= 1000) return `₪${(v / 1000).toLocaleString('en-IL', { maximumFractionDigits: 1 })}K`
+  if (v >= 1000) return `${(v / 1000).toLocaleString('en-IL', { maximumFractionDigits: 1 })}K ₪`
   return `${v.toLocaleString('en-IL', { maximumFractionDigits: 0 })}₪`
 }
 
-export function MonthlySpendBarChart({ rows, selectedYm, onSelectMonth }: Props) {
+export function SpendBarChart({ rows, selectedPeriodKey, onSelectPeriod, barSlotWidth = 52, barSize = 28 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const data = rows.map((r) => ({
-    ...r,
-    label: formatMonthAxisCompact(r.ym),
-  }))
-
-  const barWidth = 64
 
   useEffect(() => {
     const el = scrollRef.current
@@ -63,10 +46,18 @@ export function MonthlySpendBarChart({ rows, selectedYm, onSelectMonth }: Props)
     <div className="w-full min-w-0">
       <div className="relative min-w-0">
         <div ref={scrollRef} className="overflow-x-auto pb-2 -mx-1 px-1">
-          <div style={{ width: Math.max(480, rows.length * barWidth), height: 220 }}>
+          <div
+            style={{
+              width:
+                rows.length === 0
+                  ? 200
+                  : Math.max(rows.length * barSlotWidth, 240),
+              height: 220,
+            }}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
-                data={data}
+                data={rows}
                 margin={{ top: 28, right: 8, left: 4, bottom: 4 }}
               >
                 <XAxis
@@ -78,11 +69,12 @@ export function MonthlySpendBarChart({ rows, selectedYm, onSelectMonth }: Props)
                 <YAxis hide domain={[0, 'auto']} />
                 <Bar
                   dataKey="total"
+                  barSize={barSize}
                   radius={[5, 5, 0, 0]}
                   className="cursor-pointer outline-none"
                   activeBar={false}
                   isAnimationActive={false}
-                  onClick={(row: (typeof data)[0]) => onSelectMonth(row.ym)}
+                  onClick={(row: BarPeriodRow) => onSelectPeriod(row.periodKey)}
                 >
                   <LabelList
                     dataKey="total"
@@ -104,16 +96,16 @@ export function MonthlySpendBarChart({ rows, selectedYm, onSelectMonth }: Props)
                       )
                     }}
                   />
-                  {data.map((row) => (
+                  {rows.map((row) => (
                     <Cell
-                      key={row.ym}
+                      key={row.periodKey}
                       fill={
-                        row.ym === selectedYm
+                        row.periodKey === selectedPeriodKey
                           ? 'var(--color-accent, #6366f1)'
                           : 'color-mix(in srgb, var(--color-accent, #6366f1) 35%, transparent)'
                       }
-                      stroke={row.ym === selectedYm ? 'var(--color-accent, #6366f1)' : 'transparent'}
-                      strokeWidth={row.ym === selectedYm ? 2 : 0}
+                      stroke={row.periodKey === selectedPeriodKey ? 'var(--color-accent, #6366f1)' : 'transparent'}
+                      strokeWidth={row.periodKey === selectedPeriodKey ? 2 : 0}
                       className="outline-none"
                     />
                   ))}

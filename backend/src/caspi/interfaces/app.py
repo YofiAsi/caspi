@@ -1,3 +1,6 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -15,7 +18,25 @@ from caspi.interfaces.routers.scrape import router as scrape_router
 from caspi.interfaces.routers.tags import router as tags_router
 from caspi.settings import settings
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = None
+    if settings.auto_scrape_enabled:
+        from caspi.application.auto_scrape import run_auto_scrape_loop
+
+        task = asyncio.create_task(run_auto_scrape_loop())
+    yield
+    if task is not None:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+
 app = FastAPI(
+    lifespan=lifespan,
     docs_url=None if settings.auth_enabled else "/docs",
     redoc_url=None if settings.auth_enabled else "/redoc",
     openapi_url=None if settings.auth_enabled else "/openapi.json",
@@ -51,4 +72,6 @@ register_google_oauth()
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    from caspi.application.auto_scrape import get_auto_scrape_status
+
+    return {"status": "ok", "auto_scrape": get_auto_scrape_status()}

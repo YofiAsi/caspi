@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from enum import Enum
 from typing import Optional
 from uuid import UUID
 
@@ -10,6 +11,8 @@ from caspi.application.payments.read import (
     list_payments_page,
     month_tag_slices_for_month,
     payment_summary_for_filters,
+    payment_timeseries,
+    period_tag_slices,
 )
 from caspi.application.payments.update import PaymentPatchValidationError, patch_payment_by_id
 from caspi.domain.value_objects.ids import PaymentId
@@ -20,6 +23,8 @@ from caspi.interfaces.schemas.payments import (
     PaymentListPageResponse,
     PaymentResponse,
     PaymentSummaryResponse,
+    PaymentTimeseriesResponse,
+    PaymentTimeseriesRow,
 )
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
@@ -114,6 +119,101 @@ async def payments_summary(
         merged_tag_ids=combo_ids if apply_tag_combo else None,
         apply_tag_combo_other=apply_tag_combo_other,
         tag_combo_excludes=excludes if apply_tag_combo_other else None,
+    )
+
+
+class TimeseriesGranularity(str, Enum):
+    weekly = "weekly"
+    monthly = "monthly"
+    quarterly = "quarterly"
+    yearly = "yearly"
+
+
+_GRANULARITY_MAP = {
+    TimeseriesGranularity.weekly: "week",
+    TimeseriesGranularity.monthly: "month",
+    TimeseriesGranularity.quarterly: "quarter",
+    TimeseriesGranularity.yearly: "year",
+}
+
+
+@router.get("/timeseries", response_model=PaymentTimeseriesResponse)
+async def payments_timeseries(
+    granularity: TimeseriesGranularity = Query(default=TimeseriesGranularity.monthly),
+    include_tags: Optional[list[str]] = Query(default=None),
+    exclude_tags: Optional[list[str]] = Query(default=None),
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    amount_min: Optional[Decimal] = None,
+    amount_max: Optional[Decimal] = None,
+    tagged_only: bool = False,
+    currency: Optional[str] = Query(default=None, min_length=3, max_length=3),
+    collection_id: Optional[str] = Query(default=None),
+    apply_tag_combo: bool = False,
+    merged_tag_ids: Optional[list[str]] = Query(default=None),
+    apply_tag_combo_other: bool = False,
+    tag_combo_exclude: Optional[list[str]] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    if apply_tag_combo and apply_tag_combo_other:
+        raise HTTPException(
+            status_code=422,
+            detail="apply_tag_combo and apply_tag_combo_other cannot both be true",
+        )
+    excludes = _parse_tag_combo_excludes(tag_combo_exclude)
+    if apply_tag_combo_other and not excludes:
+        raise HTTPException(
+            status_code=422,
+            detail="tag_combo_exclude is required when apply_tag_combo_other is true",
+        )
+
+    combo_ids = _parse_uuid_list(merged_tag_ids) if merged_tag_ids else []
+    if combo_ids is None:
+        combo_ids = []
+
+    trunc = _GRANULARITY_MAP[granularity]
+    rows = await payment_timeseries(
+        db,
+        granularity=trunc,
+        include_tags=include_tags,
+        exclude_tags=exclude_tags,
+        date_from=date_from,
+        date_to=date_to,
+        amount_min=amount_min,
+        amount_max=amount_max,
+        tagged_only=tagged_only or None,
+        currency=currency.upper().strip() if currency else None,
+        collection_id=_parse_collection_id_param(collection_id),
+        apply_tag_combo=apply_tag_combo,
+        merged_tag_ids=combo_ids if apply_tag_combo else None,
+        apply_tag_combo_other=apply_tag_combo_other,
+        tag_combo_excludes=excludes if apply_tag_combo_other else None,
+    )
+    return PaymentTimeseriesResponse(
+        granularity=granularity.value,
+        rows=[
+            PaymentTimeseriesRow(period_start=d, sum_effective=s, payment_count=c)
+            for d, s, c in rows
+        ],
+    )
+
+
+@router.get("/analysis/period-tag-slices", response_model=MonthTagSlicesResponse)
+async def payments_period_tag_slices(
+    date_from: date = Query(...),
+    date_to: date = Query(...),
+    filter_tag_id: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        UUID(filter_tag_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid filter_tag_id")
+    return await period_tag_slices(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        filter_tag_id=filter_tag_id,
     )
 
 

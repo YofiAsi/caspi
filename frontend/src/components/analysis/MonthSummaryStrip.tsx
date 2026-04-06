@@ -11,10 +11,10 @@ export function MonthSummaryStrip({ yearMonth, paymentCount, sumEffective }: Pro
   const label = formatYearMonthLabel(yearMonth, 'en-GB')
 
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-accent/10 to-transparent p-5">
-      <p className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-1">{label}</p>
-      <p className="text-4xl font-bold text-fg tracking-tight">{formatCurrency(sumEffective, 'ILS')}</p>
-      <p className="text-xs text-fg-subtle mt-2">{paymentCount} payments</p>
+    <div className="rounded-[18px] bg-surface p-5" style={{ border: '0.5px solid rgba(255,255,255,0.06)' }}>
+      <p className="text-[10px] font-bold text-fg-subtle uppercase tracking-wider">{label}</p>
+      <p className="text-[24px] font-[800] text-fg tracking-tight mt-1 leading-none">{formatCurrency(sumEffective, 'ILS')}</p>
+      <p className="text-[11px] text-fg-muted mt-1.5">{paymentCount} payments</p>
     </div>
   )
 }

@@ -45,6 +45,80 @@ def aligned_original_amount_for_store(charged_amount: Decimal, original_raw: obj
     return _decimal_to_json_number(aligned)
 
 
+async def import_isracard_accounts(
+    accounts: list,
+    *,
+    payment_repo: PaymentRepository,
+    import_batch_repo: ImportBatchRepository,
+    merchant_repo: MerchantRepository,
+) -> ScrapeIsracardResult:
+    imported_at = datetime.now(timezone.utc)
+    import_id = ImportId()
+    payments: list[Payment] = []
+
+    existing_identifiers = await payment_repo.find_source_identifiers(PaymentSource.ISRACARD)
+
+    for account in accounts:
+        account_number = account.get("accountNumber", "unknown")
+        for txn in account.get("txns", []):
+            identifier = txn.get("identifier")
+            if identifier is not None and str(identifier) in existing_identifiers:
+                continue
+            charged_amount = -Decimal(str(txn.get("chargedAmount", 0)))
+            txn_date = date.fromisoformat(txn.get("date", "")[:10])
+            description = txn.get("description", "")
+
+            installments = txn.get("installments")
+            canon = description.strip().lower()
+            merchant_id = await merchant_repo.ensure_by_canonical_name(canon)
+            payment = Payment(
+                payment_id=PaymentId(),
+                amount=Money(charged_amount, "ILS"),
+                date=txn_date,
+                description=description,
+                source=PaymentSource.ISRACARD,
+                import_id=import_id,
+                merchant_id=merchant_id,
+                merchant_canonical_name=canon,
+                extra={
+                    "account_number": account_number,
+                    "original_amount": aligned_original_amount_for_store(
+                        charged_amount, txn.get("originalAmount")
+                    ),
+                    "original_currency": txn.get("originalCurrency"),
+                    "processed_date": txn.get("processedDate"),
+                    "memo": txn.get("memo"),
+                    "status": txn.get("status"),
+                    "identifier": txn.get("identifier"),
+                    "type": txn.get("type"),
+                    "installment_number": installments.get("number") if installments else None,
+                    "installment_total": installments.get("total") if installments else None,
+                    "category": txn.get("category"),
+                    "extended_details": txn.get("extendedDetails"),
+                },
+            )
+
+            payments.append(payment)
+
+    import_batch = ImportBatch(
+        import_id=import_id,
+        source=PaymentSource.ISRACARD,
+        file_name=f"isracard_{imported_at.date().isoformat()}",
+        imported_at=imported_at,
+        payment_count=len(payments),
+    )
+
+    await import_batch_repo.save(import_batch)
+    for payment in payments:
+        await payment_repo.save(payment)
+
+    return ScrapeIsracardResult(
+        import_id=import_id,
+        payment_count=len(payments),
+        imported_at=imported_at,
+    )
+
+
 class ScrapeIsracardUseCase:
     def __init__(
         self,
@@ -77,68 +151,9 @@ class ScrapeIsracardUseCase:
             response.raise_for_status()
             data = response.json()
 
-        imported_at = datetime.now(timezone.utc)
-        import_id = ImportId()
-        payments: list[Payment] = []
-
-        existing_identifiers = await self._payment_repo.find_source_identifiers(PaymentSource.ISRACARD)
-
-        for account in data.get("accounts", []):
-            account_number = account.get("accountNumber", "unknown")
-            for txn in account.get("txns", []):
-                identifier = txn.get("identifier")
-                if identifier is not None and str(identifier) in existing_identifiers:
-                    continue
-                charged_amount = -Decimal(str(txn.get("chargedAmount", 0)))
-                txn_date = date.fromisoformat(txn.get("date", "")[:10])
-                description = txn.get("description", "")
-
-                installments = txn.get("installments")
-                canon = description.strip().lower()
-                merchant_id = await self._merchant_repo.ensure_by_canonical_name(canon)
-                payment = Payment(
-                    payment_id=PaymentId(),
-                    amount=Money(charged_amount, "ILS"),
-                    date=txn_date,
-                    description=description,
-                    source=PaymentSource.ISRACARD,
-                    import_id=import_id,
-                    merchant_id=merchant_id,
-                    merchant_canonical_name=canon,
-                    extra={
-                        "account_number": account_number,
-                        "original_amount": aligned_original_amount_for_store(
-                            charged_amount, txn.get("originalAmount")
-                        ),
-                        "original_currency": txn.get("originalCurrency"),
-                        "processed_date": txn.get("processedDate"),
-                        "memo": txn.get("memo"),
-                        "status": txn.get("status"),
-                        "identifier": txn.get("identifier"),
-                        "type": txn.get("type"),
-                        "installment_number": installments.get("number") if installments else None,
-                        "installment_total": installments.get("total") if installments else None,
-                        "category": txn.get("category"),
-                        "extended_details": txn.get("extendedDetails"),
-                    },
-                )
-
-                payments.append(payment)
-
-        import_batch = ImportBatch(
-            import_id=import_id,
-            source=PaymentSource.ISRACARD,
-            file_name=f"isracard_{imported_at.date().isoformat()}",
-            imported_at=imported_at,
-            payment_count=len(payments),
-        )
-
-        await self._import_batch_repo.save(import_batch)
-        for payment in payments:
-            await self._payment_repo.save(payment)
-
-        return ScrapeIsracardResult(
-            import_id=import_id,
-            payment_count=len(payments),
-            imported_at=imported_at,
+        return await import_isracard_accounts(
+            data.get("accounts", []),
+            payment_repo=self._payment_repo,
+            import_batch_repo=self._import_batch_repo,
+            merchant_repo=self._merchant_repo,
         )

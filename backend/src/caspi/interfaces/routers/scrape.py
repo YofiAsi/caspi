@@ -128,16 +128,7 @@ async def bulk_scrape_isracard(start_date: date, end_date: date | None = None):
         start_date=start_date,
         end_date=end_date,
     )
-    use_case = BulkScrapeIsracardUseCase(
-        scraper_url=settings.scraper_url,
-        cooldown_min_seconds=settings.isracard_bulk_cooldown_min_seconds,
-        cooldown_initial_seconds=settings.isracard_bulk_cooldown_initial_seconds,
-        cooldown_step_down_seconds=settings.isracard_bulk_cooldown_step_down_seconds,
-        cooldown_max_seconds=settings.isracard_bulk_cooldown_max_seconds,
-        cooldown_tick_seconds=settings.isracard_bulk_cooldown_tick_seconds,
-        automation_retry_seconds=settings.isracard_bulk_automation_retry_seconds,
-        cooldown_failure_bump_seconds=settings.isracard_bulk_cooldown_failure_bump_seconds,
-    )
+    use_case = BulkScrapeIsracardUseCase(scraper_url=settings.scraper_url)
 
     async def generate():
         async for event in use_case.execute_stream(request):
