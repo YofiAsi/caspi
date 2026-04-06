@@ -12,6 +12,32 @@ interface Props {
   selectedPaymentIds: Set<string>
   onSelectionChange: (payments: Payment[]) => void
   onTopVisibleYearChange?: (year: number | null) => void
+  grouped?: boolean
+}
+
+function dateGroupLabel(dateStr: string): string {
+  const today = new Date().toISOString().slice(0, 10)
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+  if (dateStr === today) return 'Today'
+  if (dateStr === yesterday) return 'Yesterday'
+  const y = parseInt(dateStr.slice(0, 4), 10)
+  const currentYear = new Date().getFullYear()
+  const opts: Intl.DateTimeFormatOptions =
+    y === currentYear
+      ? { month: 'long', day: 'numeric' }
+      : { month: 'long', day: 'numeric', year: 'numeric' }
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', opts)
+}
+
+function groupByDate(payments: Payment[]): [string, Payment[]][] {
+  const map = new Map<string, Payment[]>()
+  for (const p of payments) {
+    const key = p.date.slice(0, 10)
+    const arr = map.get(key)
+    if (arr) arr.push(p)
+    else map.set(key, [p])
+  }
+  return [...map.entries()]
 }
 
 export function PaymentList({
@@ -20,6 +46,7 @@ export function PaymentList({
   selectedPaymentIds,
   onSelectionChange,
   onTopVisibleYearChange,
+  grouped,
 }: Props) {
   const { data: tagsData } = useQuery({
     queryKey: ['tags'],
@@ -206,6 +233,30 @@ export function PaymentList({
     return (
       <div className="py-16 text-center">
         <p className="text-fg-subtle text-sm">No payments here yet.</p>
+      </div>
+    )
+  }
+
+  if (grouped) {
+    const groups = groupByDate(payments)
+    return (
+      <div className="px-[18px] pb-4">
+        {groups.map(([date, items]) => (
+          <div key={date}>
+            <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mt-3.5 mb-2 px-1">{dateGroupLabel(date)}</p>
+            <div className="bg-surface rounded-[20px] overflow-hidden" style={{ border: '0.5px solid rgba(255,255,255,0.1)' }}>
+              {items.map((payment) => (
+                <div key={payment.payment_id} data-payment-year={parseInt(payment.date.slice(0, 4), 10)}>
+                  <PaymentCard payment={payment} tagLabels={tagLabels} onClick={(e) => handleCardClick(payment, e)} isSelected={selectedPaymentIds.has(payment.payment_id)} hideDate />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        <div ref={sentinelRef} className="h-1 w-full" aria-hidden />
+        {isFetchingNextPage ? (
+          <div className="flex justify-center py-6"><div className="h-5 w-5 rounded-full border-2 border-ring border-t-transparent animate-spin" /></div>
+        ) : null}
       </div>
     )
   }

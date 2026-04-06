@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTheme } from 'next-themes'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { CollectionItem, Payment, TagItem } from '../types'
@@ -704,6 +704,127 @@ function PanelContent({
   )
 }
 
+const SWIPE_THRESHOLD = 80
+
+function MobileSheet({
+  payment,
+  onClose,
+  contentProps,
+}: {
+  payment: Payment | null
+  onClose: () => void
+  contentProps: Omit<ContentProps, 'payment'>
+}) {
+  const [visible, setVisible] = useState(false)
+  const [exiting, setExiting] = useState(false)
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const dragY = useRef(0)
+  const dragging = useRef(false)
+  const startY = useRef(0)
+  const prevPayment = useRef<Payment | null>(null)
+
+  // Track the last non-null payment so we can show it while animating out
+  if (payment) prevPayment.current = payment
+
+  const displayPayment = payment ?? prevPayment.current
+
+  // Open when payment arrives
+  useEffect(() => {
+    if (payment) {
+      setExiting(false)
+      setVisible(true)
+    }
+  }, [payment])
+
+  const animateClose = useCallback(() => {
+    if (exiting) return
+    setExiting(true)
+    setTimeout(() => {
+      setVisible(false)
+      setExiting(false)
+      onClose()
+    }, 350) // match slideDown duration
+  }, [exiting, onClose])
+
+  // Touch handlers for swipe-to-close
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    const el = sheetRef.current
+    if (!el) return
+    // Only allow drag when the scroll container is at the top
+    const scrollContainer = el.querySelector('.overflow-y-auto') as HTMLElement | null
+    if (scrollContainer && scrollContainer.scrollTop > 0) return
+    startY.current = e.touches[0].clientY
+    dragY.current = 0
+    dragging.current = true
+  }, [])
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!dragging.current) return
+    const delta = e.touches[0].clientY - startY.current
+    if (delta < 0) { dragY.current = 0; return } // only track downward
+    dragY.current = delta
+    const el = sheetRef.current
+    if (el) el.style.transform = `translateY(${delta}px)`
+  }, [])
+
+  const onTouchEnd = useCallback(() => {
+    if (!dragging.current) return
+    dragging.current = false
+    const el = sheetRef.current
+    if (dragY.current > SWIPE_THRESHOLD) {
+      animateClose()
+      if (el) el.style.transform = ''
+    } else {
+      if (el) {
+        el.style.transition = 'transform 0.2s ease'
+        el.style.transform = ''
+        setTimeout(() => { if (el) el.style.transition = '' }, 200)
+      }
+    }
+    dragY.current = 0
+  }, [animateClose])
+
+  if (!visible || !displayPayment) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className={`absolute inset-0 bg-scrim ${exiting ? 'animate-scrimOut' : 'animate-scrimIn'}`}
+        onClick={animateClose}
+        aria-hidden="true"
+      />
+      <div
+        ref={sheetRef}
+        className={`relative z-10 w-full sm:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col max-h-[90vh] ${exiting ? 'animate-slideDown' : 'animate-slideUp'}`}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        {/* Drag handle */}
+        <div className="flex justify-center pt-2.5 pb-0 shrink-0">
+          <div className="w-9 h-1 rounded-full bg-fg-subtle/30" />
+        </div>
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border shrink-0">
+          <p className="text-xs font-semibold text-fg-muted uppercase tracking-wide">Details</p>
+          <button
+            type="button"
+            onClick={animateClose}
+            className="text-fg-subtle hover:text-fg-muted text-lg leading-none"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <PanelContent payment={displayPayment} {...contentProps} />
+      </div>
+    </div>
+  )
+}
+
 export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props) {
   const isSmall = useIsSmallScreen()
   const queryClient = useQueryClient()
@@ -946,33 +1067,8 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
   }
 
   if (isSmall) {
-    if (!payment) return null
     return (
-      <div
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-        role="dialog"
-        aria-modal="true"
-      >
-        <div
-          className="absolute inset-0 bg-scrim"
-          onClick={onClose}
-          aria-hidden="true"
-        />
-        <div className="relative z-10 w-full sm:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col max-h-[90vh]">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-            <p className="text-xs font-semibold text-fg-muted uppercase tracking-wide">Details</p>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-fg-subtle hover:text-fg-muted text-lg leading-none"
-              aria-label="Close"
-            >
-              ×
-            </button>
-          </div>
-          <PanelContent payment={payment} {...contentProps} />
-        </div>
-      </div>
+      <MobileSheet payment={payment} onClose={onClose} contentProps={contentProps} />
     )
   }
 

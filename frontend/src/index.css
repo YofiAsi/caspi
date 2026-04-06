@@ -9,12 +9,14 @@
 @theme {
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
+  --color-surface2: var(--surface2);
   --color-muted: var(--muted);
   --color-muted-hover: var(--muted-hover);
   --color-hover-surface: var(--hover-surface);
   --color-active-surface: var(--active-surface);
   --color-border: var(--border);
   --color-border-subtle: var(--border-subtle);
+  --color-border-2: var(--border-2);
   --color-fg: var(--fg);
   --color-fg-secondary: var(--fg-secondary);
   --color-fg-muted: var(--fg-muted);
@@ -46,30 +48,34 @@
   --color-scrim: var(--scrim);
   --color-checkbox-border: var(--checkbox-border);
   --color-disabled-fg: var(--disabled-fg);
+  --color-header-bg: var(--header-bg);
+  --color-nav-bg: var(--nav-bg);
 }
 
 :root {
-  --canvas: #f9fafb;
+  --canvas: #faf9f7;
   --surface: #ffffff;
+  --surface2: #f5f3f0;
   --muted: #f9fafb;
   --muted-hover: #f3f4f6;
   --hover-surface: #f9fafb;
   --active-surface: #f3f4f6;
   --border: #e5e7eb;
   --border-subtle: #f3f4f6;
+  --border-2: #d1cfc9;
   --fg: #111827;
   --fg-secondary: #374151;
   --fg-muted: #4b5563;
   --fg-subtle: #9ca3af;
-  --accent: #4f46e5;
-  --accent-hover: #4338ca;
+  --accent: #B8922E;
+  --accent-hover: #A37E22;
   --on-primary: #ffffff;
-  --accent-soft: #eef2ff;
-  --accent-soft-fg: #4338ca;
-  --accent-soft-hover: #e0e7ff;
-  --accent-nav: #e0e7ff;
-  --accent-nav-fg: #312e81;
-  --ring: #818cf8;
+  --accent-soft: rgba(184,146,46,0.10);
+  --accent-soft-fg: #8A6D1B;
+  --accent-soft-hover: rgba(184,146,46,0.18);
+  --accent-nav: rgba(184,146,46,0.12);
+  --accent-nav-fg: #6B5215;
+  --ring: rgba(184,146,46,0.4);
   --input-bg: #ffffff;
   --track: #f3f4f6;
   --toggle-off: #e5e7eb;
@@ -84,52 +90,112 @@
   --warning-border: #fde68a;
   --info: #3b82f6;
   --emerald-link: #059669;
-  --accent-bar: #818cf8;
+  --accent-bar: #B8922E;
   --scrim: rgb(0 0 0 / 0.4);
   --checkbox-border: #d1d5db;
   --disabled-fg: #d1d5db;
+  --header-bg: rgb(255 255 255 / 0.82);
+  --nav-bg: rgb(255 255 255 / 0.82);
 }
 
 .dark {
-  --canvas: #09090b;
-  --surface: #18181b;
-  --muted: #18181b;
-  --muted-hover: #27272a;
-  --hover-surface: #27272a;
-  --active-surface: #3f3f46;
-  --border: #3f3f46;
-  --border-subtle: #27272a;
-  --fg: #fafafa;
-  --fg-secondary: #d4d4d8;
-  --fg-muted: #a1a1aa;
-  --fg-subtle: #71717a;
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --on-primary: #ffffff;
-  --accent-soft: rgb(99 102 241 / 0.18);
-  --accent-soft-fg: #a5b4fc;
-  --accent-soft-hover: rgb(99 102 241 / 0.28);
-  --accent-nav: rgb(99 102 241 / 0.22);
-  --accent-nav-fg: #e0e7ff;
-  --ring: #818cf8;
-  --input-bg: #27272a;
-  --track: #3f3f46;
-  --toggle-off: #52525b;
-  --danger-bg: rgb(239 68 68 / 0.15);
-  --danger-fg: #fca5a5;
-  --danger-text: #f87171;
-  --success-bg: rgb(16 185 129 / 0.15);
-  --success-fg: #6ee7b7;
-  --success-text: #34d399;
-  --warning-bg: rgb(245 158 11 / 0.15);
-  --warning-fg: #fcd34d;
-  --warning-border: rgb(245 158 11 / 0.35);
-  --info: #60a5fa;
-  --emerald-link: #34d399;
-  --accent-bar: #818cf8;
-  --scrim: rgb(0 0 0 / 0.65);
-  --checkbox-border: #52525b;
-  --disabled-fg: #52525b;
+  --canvas: #0A0A0C;
+  --surface: #141416;
+  --surface2: #1C1C1F;
+  --muted: #1C1C1F;
+  --muted-hover: #242427;
+  --hover-surface: #1C1C1F;
+  --active-surface: #242427;
+  --border: rgba(255,255,255,0.06);
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-2: rgba(255,255,255,0.1);
+  --fg: #F0EDE8;
+  --fg-secondary: #C0BBB2;
+  --fg-muted: #8A8880;
+  --fg-subtle: #4A4946;
+  --accent: #D4A853;
+  --accent-hover: #E0B860;
+  --on-primary: #0A0A0C;
+  --accent-soft: rgba(212,168,83,0.12);
+  --accent-soft-fg: #D4A853;
+  --accent-soft-hover: rgba(212,168,83,0.20);
+  --accent-nav: rgba(212,168,83,0.15);
+  --accent-nav-fg: #D4A853;
+  --ring: rgba(212,168,83,0.4);
+  --input-bg: #1C1C1F;
+  --track: #1C1C1F;
+  --toggle-off: #2A2A2D;
+  --danger-bg: rgba(232,88,88,0.12);
+  --danger-fg: #E85858;
+  --danger-text: #E85858;
+  --success-bg: rgba(93,184,122,0.12);
+  --success-fg: #5DB87A;
+  --success-text: #5DB87A;
+  --warning-bg: rgba(212,168,83,0.12);
+  --warning-fg: #D4A853;
+  --warning-border: rgba(212,168,83,0.25);
+  --info: #6CA0DC;
+  --emerald-link: #5DB87A;
+  --accent-bar: #D4A853;
+  --scrim: rgb(0 0 0 / 0.7);
+  --checkbox-border: rgba(255,255,255,0.1);
+  --disabled-fg: #4A4946;
+  --header-bg: rgba(12,12,14,0.96);
+  --nav-bg: rgba(12,12,14,0.96);
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+@keyframes scrimIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scrimOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@utility animate-fadeUp {
+  animation: fadeUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@utility animate-fadeIn {
+  animation: fadeIn 0.2s ease both;
+}
+
+@utility animate-slideUp {
+  animation: slideUp 0.4s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@utility animate-slideDown {
+  animation: slideDown 0.35s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@utility animate-scrimIn {
+  animation: scrimIn 0.3s ease both;
+}
+
+@utility animate-scrimOut {
+  animation: scrimOut 0.3s ease both;
 }
 
 @layer base {
@@ -138,5 +204,10 @@
   }
   html.dark {
     color-scheme: dark;
+  }
+  button, a, [role="button"] {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 }

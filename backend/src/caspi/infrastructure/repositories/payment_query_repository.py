@@ -520,3 +520,62 @@ class SqlPaymentQueryRepository:
             stmt = stmt.where(and_(*conditions))
         row = (await self._session.execute(stmt)).one()
         return int(row[0]), Decimal(str(row[1]))
+
+    async def timeseries(
+        self,
+        *,
+        granularity: str,
+        include_tags: Optional[list[str]] = None,
+        exclude_tags: Optional[list[str]] = None,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+        amount_min: Optional[Decimal] = None,
+        amount_max: Optional[Decimal] = None,
+        tagged_only: Optional[bool] = None,
+        currency: Optional[str] = None,
+        collection_id: Optional[UUID] = None,
+        apply_tag_combo: bool = False,
+        merged_tag_ids: Optional[list[UUID]] = None,
+        apply_tag_combo_other: bool = False,
+        tag_combo_excludes: Optional[list[list[UUID]]] = None,
+    ) -> list[tuple[date, Decimal, int]]:
+        eff = _effective_amount_expr()
+        period_col = func.date_trunc(granularity, PaymentModel.date).label("period_start")
+        stmt = (
+            select(
+                period_col,
+                func.coalesce(func.sum(eff), 0),
+                func.count(PaymentModel.payment_id),
+            )
+            .select_from(PaymentModel)
+            .outerjoin(MerchantModel, MerchantModel.id == PaymentModel.merchant_id)
+        )
+        conditions = self._base_conditions(
+            include_tags=include_tags,
+            exclude_tags=exclude_tags,
+            date_from=date_from,
+            date_to=date_to,
+            amount_min=amount_min,
+            amount_max=amount_max,
+            tagged_only=tagged_only,
+            search_q=None,
+            currency=currency,
+            filter_tag_id=None,
+            other_tag_ids=None,
+            apply_tag_slice=False,
+            collection_id=collection_id,
+            apply_tag_combo=apply_tag_combo,
+            merged_tag_ids=merged_tag_ids,
+            apply_tag_combo_other=apply_tag_combo_other,
+            tag_combo_excludes=tag_combo_excludes,
+        )
+        if conditions:
+            stmt = stmt.where(and_(*conditions))
+        stmt = stmt.group_by(period_col).order_by(period_col)
+        result = await self._session.execute(stmt)
+        rows: list[tuple[date, Decimal, int]] = []
+        for r in result.all():
+            p0 = r[0]
+            d = p0.date() if hasattr(p0, "date") else p0
+            rows.append((d, Decimal(str(r[1])), int(r[2])))
+        return rows

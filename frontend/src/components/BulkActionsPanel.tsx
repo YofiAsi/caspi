@@ -105,11 +105,11 @@ function BulkTagDialog({ payments, onClose, onSaved }: DialogProps) {
       aria-modal="true"
     >
       <div
-        className="absolute inset-0 bg-scrim"
+        className="absolute inset-0 bg-scrim animate-scrimIn"
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative z-10 w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col">
+      <div className="relative z-10 w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col animate-slideUp">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <p className="text-xs font-semibold text-fg-muted uppercase tracking-wide">
             Add payment-only tags to {payments.length} payments
@@ -299,11 +299,11 @@ function BulkCollectionDialog({ payments, onClose, onSaved }: DialogProps) {
       aria-modal="true"
     >
       <div
-        className="absolute inset-0 bg-scrim"
+        className="absolute inset-0 bg-scrim animate-scrimIn"
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative z-10 w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col">
+      <div className="relative z-10 w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col animate-slideUp">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <p className="text-xs font-semibold text-fg-muted uppercase tracking-wide">
             Add to collections · {payments.length} payments

@@ -112,6 +112,17 @@ class MonthSummaryRow(BaseModel):
     sum_effective: Decimal
 
 
+class PaymentTimeseriesRow(BaseModel):
+    period_start: date
+    sum_effective: Decimal
+    payment_count: int
+
+
+class PaymentTimeseriesResponse(BaseModel):
+    granularity: str
+    rows: list[PaymentTimeseriesRow]
+
+
 class PaymentSummaryResponse(BaseModel):
     payment_count: int
     totals_by_currency: list[CurrencyTotals]

@@ -1,5 +1,4 @@
-import asyncio
-import calendar
+import json
 from dataclasses import dataclass
 from datetime import date
 from typing import AsyncGenerator
@@ -7,28 +6,13 @@ from typing import AsyncGenerator
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from caspi.application.scrape_isracard import ScrapeIsracardRequest, ScrapeIsracardUseCase
+from caspi.application.scrape_isracard import import_isracard_accounts
 from caspi.infrastructure.database import async_session as default_session_factory
 from caspi.infrastructure.repositories import (
     SqlImportBatchRepository,
     SqlMerchantRepository,
     SqlPaymentRepository,
 )
-
-
-async def _yield_cooldown(
-    total_seconds: int,
-    tick_seconds: int,
-    month_str: str,
-) -> AsyncGenerator[dict, None]:
-    if total_seconds <= 0 or tick_seconds <= 0:
-        return
-    remaining = total_seconds
-    while remaining > 0:
-        step = min(tick_seconds, remaining)
-        yield {"type": "cooldown", "seconds": remaining, "next_month": month_str}
-        await asyncio.sleep(step)
-        remaining -= step
 
 
 def _monthly_starts(start: date, end: date) -> list[date]:
@@ -49,6 +33,16 @@ def count_bulk_sync_months(start: date, end: date | None) -> int:
     return len(_monthly_starts(start, effective_end))
 
 
+async def _iter_sse_json_events(response: httpx.Response) -> AsyncGenerator[dict, None]:
+    async for line in response.aiter_lines():
+        if not line or not line.startswith("data: "):
+            continue
+        raw = line[6:].strip()
+        if not raw:
+            continue
+        yield json.loads(raw)
+
+
 @dataclass
 class BulkScrapeIsracardRequest:
     id: str
@@ -64,138 +58,148 @@ class BulkScrapeIsracardUseCase:
         scraper_url: str,
         *,
         session_factory: async_sessionmaker[AsyncSession] | None = None,
-        cooldown_min_seconds: int = 10,
-        cooldown_initial_seconds: int = 45,
-        cooldown_step_down_seconds: int = 8,
-        cooldown_max_seconds: int = 180,
-        cooldown_tick_seconds: int = 2,
-        automation_retry_seconds: int = 120,
-        cooldown_failure_bump_seconds: int = 25,
     ):
-        self._scraper_url = scraper_url
+        self._scraper_url = scraper_url.rstrip("/")
         self._session_factory = session_factory or default_session_factory
-        self._cooldown_min = max(0, cooldown_min_seconds)
-        self._cooldown_initial = max(self._cooldown_min, cooldown_initial_seconds)
-        self._cooldown_step_down = max(0, cooldown_step_down_seconds)
-        self._cooldown_max = max(self._cooldown_initial, cooldown_max_seconds)
-        self._cooldown_tick = max(1, cooldown_tick_seconds)
-        self._automation_retry = max(0, automation_retry_seconds)
-        self._failure_bump = max(0, cooldown_failure_bump_seconds)
 
     async def execute_stream(
         self, request: BulkScrapeIsracardRequest
     ) -> AsyncGenerator[dict, None]:
         end = request.end_date or date.today()
-        months = _monthly_starts(request.start_date, end)
-        total = len(months)
+        total_months = count_bulk_sync_months(request.start_date, request.end_date)
 
-        yield {"type": "start", "total": total}
+        yield {"type": "start", "total": total_months}
 
-        total_payments = 0
-        months_failed = 0
-        gap_seconds = self._cooldown_initial
-
-        for i, month_start in enumerate(months):
-            month_str = month_start.strftime("%Y-%m")
-
-            if i > 0:
-                async for ev in _yield_cooldown(
-                    gap_seconds, self._cooldown_tick, month_str
-                ):
-                    yield ev
-
-            yield {"type": "progress", "current": i + 1, "total": total, "month": month_str}
-
-            _, last_d = calendar.monthrange(month_start.year, month_start.month)
-            month_end = date(month_start.year, month_start.month, last_d)
-
-            for attempt in range(2):
-                try:
-                    async with self._session_factory() as session:
-                        use_case = ScrapeIsracardUseCase(
-                            scraper_url=self._scraper_url,
-                            payment_repo=SqlPaymentRepository(session),
-                            import_batch_repo=SqlImportBatchRepository(session),
-                            merchant_repo=SqlMerchantRepository(session),
-                        )
-                        result = await use_case.execute(
-                            ScrapeIsracardRequest(
-                                id=request.id,
-                                card6_digits=request.card6_digits,
-                                password=request.password,
-                                start_date=month_start,
-                                end_date=month_end,
-                            )
-                        )
-                        await session.commit()
-
-                    total_payments += result.payment_count
-                    gap_seconds = max(
-                        self._cooldown_min,
-                        gap_seconds - self._cooldown_step_down,
-                    )
-                    yield {
-                        "type": "month_done",
-                        "month": month_str,
-                        "payment_count": result.payment_count,
-                    }
-                    break
-
-                except httpx.HTTPStatusError as e:
-                    error_code = ""
-                    error_msg = str(e)
-                    if e.response.status_code == 422:
-                        try:
-                            detail = e.response.json()
-                            error_code = str(detail.get("error") or "")
-                            error_msg = (
-                                detail.get("message")
-                                or detail.get("error")
-                                or error_msg
-                            )
-                        except Exception:
-                            pass
-                    if (
-                        attempt == 0
-                        and e.response.status_code == 422
-                        and error_code == "AUTOMATION_BLOCKED"
-                    ):
-                        gap_seconds = min(
-                            self._cooldown_max,
-                            gap_seconds + self._failure_bump,
-                        )
-                        async for ev in _yield_cooldown(
-                            self._automation_retry, self._cooldown_tick, month_str
-                        ):
-                            yield ev
-                        continue
-                    months_failed += 1
-                    err_event: dict = {
-                        "type": "month_error",
-                        "month": month_str,
-                        "error": error_msg,
-                    }
-                    if error_code:
-                        err_event["error_code"] = error_code
-                    yield err_event
-                    gap_seconds = min(
-                        self._cooldown_max,
-                        gap_seconds + self._failure_bump,
-                    )
-                    break
-
-                except Exception as e:
-                    months_failed += 1
-                    yield {"type": "month_error", "month": month_str, "error": str(e)}
-                    gap_seconds = min(
-                        self._cooldown_max,
-                        gap_seconds + self._failure_bump,
-                    )
-                    break
-
-        yield {
-            "type": "done",
-            "total_payments": total_payments,
-            "months_scraped": total - months_failed,
-            "months_failed": months_failed,
+        body: dict = {
+            "id": request.id,
+            "card6Digits": request.card6_digits,
+            "password": request.password,
+            "startDate": request.start_date.isoformat(),
+            "endDate": end.isoformat(),
         }
+
+        stream_url = f"{self._scraper_url}/scrape/isracard/stream"
+        timeout = httpx.Timeout(connect=120.0, read=None, write=120.0, pool=120.0)
+
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                async with client.stream("POST", stream_url, json=body) as response:
+                    if response.status_code != 200:
+                        err_body = (await response.aread()).decode(errors="replace")
+                        detail_msg = err_body
+                        try:
+                            err_json = json.loads(err_body)
+                            detail_msg = str(
+                                err_json.get("message") or err_json.get("error") or err_body
+                            )
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+                        yield {
+                            "type": "month_error",
+                            "month": "",
+                            "error": detail_msg or f"HTTP {response.status_code}",
+                            "error_code": "",
+                        }
+                        yield {
+                            "type": "done",
+                            "total_payments": 0,
+                            "months_scraped": 0,
+                            "months_failed": 1,
+                        }
+                        return
+
+                    saw_complete = False
+                    async for event in _iter_sse_json_events(response):
+                        et = event.get("type")
+                        if et == "complete":
+                            saw_complete = True
+                            if event.get("success"):
+                                accounts = event.get("accounts") or []
+                                try:
+                                    async with self._session_factory() as session:
+                                        result = await import_isracard_accounts(
+                                            accounts,
+                                            payment_repo=SqlPaymentRepository(session),
+                                            import_batch_repo=SqlImportBatchRepository(session),
+                                            merchant_repo=SqlMerchantRepository(session),
+                                        )
+                                        await session.commit()
+                                except Exception as e:
+                                    yield {
+                                        "type": "month_error",
+                                        "month": "",
+                                        "error": str(e),
+                                        "error_code": "",
+                                    }
+                                    yield {
+                                        "type": "done",
+                                        "total_payments": 0,
+                                        "months_scraped": 0,
+                                        "months_failed": 1,
+                                    }
+                                    break
+                                yield {
+                                    "type": "done",
+                                    "total_payments": result.payment_count,
+                                    "months_scraped": total_months,
+                                    "months_failed": 0,
+                                }
+                            else:
+                                err_type = event.get("errorType")
+                                yield {
+                                    "type": "month_error",
+                                    "month": "",
+                                    "error": str(event.get("errorMessage") or "Scrape failed"),
+                                    "error_code": str(err_type) if err_type is not None else "",
+                                }
+                                yield {
+                                    "type": "done",
+                                    "total_payments": 0,
+                                    "months_scraped": 0,
+                                    "months_failed": 1,
+                                }
+                            break
+
+                        if et in (
+                            "progress",
+                            "month_done",
+                            "rate_limit",
+                            "session_recycle",
+                        ):
+                            yield event
+
+                    if not saw_complete:
+                        yield {
+                            "type": "month_error",
+                            "month": "",
+                            "error": "Scraper stream ended without a result",
+                            "error_code": "",
+                        }
+                        yield {
+                            "type": "done",
+                            "total_payments": 0,
+                            "months_scraped": 0,
+                            "months_failed": 1,
+                        }
+
+        except httpx.RequestError as e:
+            yield {"type": "month_error", "month": "", "error": str(e), "error_code": ""}
+            yield {
+                "type": "done",
+                "total_payments": 0,
+                "months_scraped": 0,
+                "months_failed": 1,
+            }
+        except json.JSONDecodeError as e:
+            yield {
+                "type": "month_error",
+                "month": "",
+                "error": f"Invalid scraper event: {e}",
+                "error_code": "",
+            }
+            yield {
+                "type": "done",
+                "total_payments": 0,
+                "months_scraped": 0,
+                "months_failed": 1,
+            }

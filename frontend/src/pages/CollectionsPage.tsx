@@ -29,7 +29,7 @@ export function CollectionsPage() {
 
   return (
     <div className="h-full min-h-0 flex flex-col">
-      <main className="flex-1 overflow-hidden max-w-5xl w-full mx-auto bg-surface sm:my-4 sm:rounded-2xl sm:shadow-sm sm:border sm:border-border flex flex-col">
+      <main className="flex-1 overflow-hidden max-w-5xl w-full mx-auto bg-surface sm:my-4 sm:rounded-2xl sm:shadow-md sm:shadow-black/5 dark:sm:shadow-black/20 sm:border sm:border-border flex flex-col">
         <div className="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-fg-muted uppercase tracking-wide">Sort</span>
