@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { AnalysisPaymentList } from '../components/analysis/AnalysisPaymentList'
 import { MonthSummaryStrip } from '../components/analysis/MonthSummaryStrip'
-import { MonthlySpendBarChart, type BarMonthRow } from '../components/analysis/MonthlySpendBarChart'
+import { SpendBarChart, type BarPeriodRow } from '../components/analysis/MonthlySpendBarChart'
 import {
   TagCombinationPieChart,
   type SliceSelection,
@@ -59,7 +59,7 @@ function buildListFilters(
 
 function ilsBarDataFromSummary(
   byMonth: { year: number; month: number; currency: string; sum_effective: string }[],
-): BarMonthRow[] {
+): BarPeriodRow[] {
   const m = new Map<string, { year: number; month: number; total: number }>()
   for (const r of byMonth) {
     if (r.currency !== 'ILS') continue
@@ -73,7 +73,11 @@ function ilsBarDataFromSummary(
   }
   return [...m.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([ym, v]) => ({ ym, year: v.year, month: v.month, total: v.total }))
+    .map(([ym, v]) => ({
+      periodKey: ym,
+      label: formatYearMonthLabel(ym, 'en-GB'),
+      total: v.total,
+    }))
 }
 
 export function MonthlyBreakdownPage() {
@@ -115,7 +119,7 @@ export function MonthlyBreakdownPage() {
     if (!barData.length) return null
     const withSpend = barData.filter((r) => r.total > 0)
     const pick = withSpend.length ? withSpend[withSpend.length - 1] : barData[barData.length - 1]
-    return pick?.ym ?? null
+    return pick?.periodKey ?? null
   }, [barData])
 
   const selectedYm = manualMonthYm ?? defaultMonthYm
@@ -195,11 +199,11 @@ export function MonthlyBreakdownPage() {
                     No spending data found for this tag selection.
                   </p>
                 ) : (
-                  <MonthlySpendBarChart
+                  <SpendBarChart
                     rows={barData}
-                    selectedYm={selectedYm}
-                    onSelectMonth={(ym) => {
-                      setManualMonthYm(ym)
+                    selectedPeriodKey={selectedYm}
+                    onSelectPeriod={(key: string) => {
+                      setManualMonthYm(key)
                       setSliceSelection(null)
                     }}
                   />
