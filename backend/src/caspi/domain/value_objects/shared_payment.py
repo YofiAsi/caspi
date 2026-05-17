@@ -10,5 +10,5 @@ class SharedPayment:
     my_share: Money
 
     def __post_init__(self) -> None:
-        if self.my_share.amount <= 0:
-            raise ValueError("my_share must be greater than zero")
+        if self.my_share.amount < 0:
+            raise ValueError("my_share must not be negative")

@@ -41,6 +41,11 @@ def test_set_shared_share_exceeds_total_raises():
         payment.set_shared(share)
 
 
-def test_shared_payment_zero_share_raises():
-    with pytest.raises(ValueError):
-        SharedPayment(my_share=Money(Decimal("0.00"), "ILS"))
+def test_shared_payment_zero_share_allowed():
+    share = SharedPayment(my_share=Money(Decimal("0.00"), "ILS"))
+    assert share.my_share.amount == Decimal("0.00")
+
+
+def test_shared_payment_negative_share_raises():
+    with pytest.raises(ValueError, match="must not be negative"):
+        SharedPayment(my_share=Money(Decimal("-1.00"), "ILS"))

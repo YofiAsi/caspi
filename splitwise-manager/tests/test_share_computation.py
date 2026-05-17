@@ -62,6 +62,22 @@ def test_percentage_split():
     assert s.amount == Decimal("60.00")
 
 
+def test_percentage_split_zero_share_for_current_user():
+    s = compute_my_share(
+        total=Decimal("49.90"),
+        currency="ILS",
+        method=SplitMethod.PERCENTAGE,
+        params={
+            "members": [
+                {"user_id": 1, "value": 0},
+                {"user_id": 2, "value": 100},
+            ]
+        },
+        current_user_id=1,
+    )
+    assert s.amount == Decimal("0.00")
+
+
 def test_percentage_must_sum_to_100():
     with pytest.raises(ValueError):
         compute_my_share(
