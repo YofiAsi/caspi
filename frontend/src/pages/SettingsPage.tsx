@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { useTheme } from 'next-themes'
-import { useAppAuth } from '../components/AppLayout'
-import { logoutAndRefresh } from '../components/AuthGate'
 import { CollapsingHeader } from '../components/CollapsingHeader'
 import { ScrapeModal } from '../components/ScrapeModal'
 import { useSyncContext } from '../contexts/SyncContext'
@@ -10,16 +8,13 @@ import { bankWaitLabel } from '../hooks/useScrapeSync'
 const THEME_OPTIONS = ['light', 'dark', 'system'] as const
 
 export function SettingsPage() {
-  const auth = useAppAuth()
   const { theme, setTheme } = useTheme()
   const [showScrapeModal, setShowScrapeModal] = useState(false)
   const { state: sync, start: startSync, cancel: cancelSync, dismiss: dismissSync } = useSyncContext()
 
-  const userName = auth.email?.split('@')[0] ?? 'User'
   const completedCount = sync.progress?.current ?? 0
   const totalCount = sync.progress?.total ?? 0
   const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
-  const initial = userName.charAt(0).toUpperCase()
 
   return (
     <>
@@ -28,19 +23,6 @@ export function SettingsPage() {
         className="flex-1 min-h-0 animate-fadeUp"
       >
         <div className="max-w-lg w-full mx-auto px-5 pt-3 pb-8">
-
-          {/* Profile card */}
-          {auth.authRequired && auth.email && (
-            <div className="bg-surface rounded-[20px] p-[18px] flex items-center gap-3.5 mb-5" style={{ border: '0.5px solid rgba(255,255,255,0.06)' }}>
-              <div className="w-[52px] h-[52px] rounded-2xl bg-accent flex items-center justify-center text-[22px] font-[900] text-on-primary shrink-0">
-                {initial}
-              </div>
-              <div>
-                <p className="text-[17px] font-bold text-fg tracking-tight">{userName}</p>
-                <p className="text-[12px] text-fg-muted mt-0.5">{auth.email}</p>
-              </div>
-            </div>
-          )}
 
           {/* Appearance */}
           <div className="mb-5">
@@ -198,21 +180,6 @@ export function SettingsPage() {
             </div>
           </div>
 
-          {/* Account */}
-          {auth.authRequired && auth.email && (
-            <div className="mb-5">
-              <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-2 px-0.5">Account</p>
-              <div className="bg-surface rounded-[18px] overflow-hidden" style={{ border: '0.5px solid rgba(255,255,255,0.06)' }}>
-                <button
-                  type="button"
-                  onClick={() => void logoutAndRefresh(auth)}
-                  className="w-full text-left px-4 py-3.5 text-[14px] font-medium text-danger-fg hover:bg-hover-surface transition-colors"
-                >
-                  Sign out
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </CollapsingHeader>
 

@@ -186,24 +186,4 @@ export const api = {
     ): Promise<CollectionTimeseriesResponse> =>
       request(`/collections/${collectionId}/timeseries?granularity=${granularity}`),
   },
-  auth: {
-    logout: (): Promise<void> =>
-      request('/auth/logout', { method: 'POST' }),
-  },
-}
-
-export type AuthMeResponse =
-  | { auth_required: false; email: null }
-  | { auth_required: true; email: string }
-
-export async function fetchAuthMe(): Promise<
-  | { kind: 'ok'; data: AuthMeResponse }
-  | { kind: 'unauthorized' }
-  | { kind: 'error'; status: number }
-> {
-  const res = await fetch(`${BASE}/auth/me`, { credentials: 'include' })
-  if (res.status === 401) return { kind: 'unauthorized' }
-  if (!res.ok) return { kind: 'error', status: res.status }
-  const data = (await res.json()) as AuthMeResponse
-  return { kind: 'ok', data }
 }

@@ -1,13 +1,8 @@
-import { Outlet, useOutletContext } from 'react-router-dom'
-import { type AuthContext } from './AuthGate'
+import { Outlet } from 'react-router-dom'
 import { BottomNav } from './BottomNav'
 import { SyncProvider } from '../contexts/SyncContext'
 
-export function useAppAuth() {
-  return useOutletContext<AuthContext>()
-}
-
-export function AppLayout({ auth }: { auth: AuthContext }) {
+export function AppLayout() {
   return (
     <SyncProvider>
       <div className="h-screen flex flex-col bg-canvas">
@@ -15,7 +10,7 @@ export function AppLayout({ auth }: { auth: AuthContext }) {
           className="flex-1 min-h-0 flex flex-col overflow-hidden"
           style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}
         >
-          <Outlet context={auth} />
+          <Outlet />
         </div>
         <BottomNav />
       </div>
