@@ -25,6 +25,7 @@ class Payment:
     shared_payment: SharedPayment | None = None
     payment_tag_ids: list[UUID] = field(default_factory=list)
     collection_ids: list[UUID] = field(default_factory=list)
+    is_shared: bool = False
     extra: dict = field(default_factory=dict)
 
     @property

@@ -27,5 +27,7 @@ def domain_payment_to_response(
         collection_ids=[str(c) for c in p.collection_ids],
         share_amount=p.shared_payment.my_share.amount if p.shared_payment else None,
         share_currency=p.shared_payment.my_share.currency if p.shared_payment else None,
+        is_shared=p.is_shared,
+        splitwise_status=None,
         extra=p.extra,
     )

@@ -1,0 +1,13 @@
+from __future__ import annotations
+
+from typing import Protocol
+from uuid import UUID
+
+from splitwise_manager.domain.entities.merchant_share_rule import MerchantShareRule
+
+
+class MerchantRuleRepository(Protocol):
+    async def get(self, merchant_id: UUID) -> MerchantShareRule | None: ...
+    async def upsert(self, rule: MerchantShareRule) -> None: ...
+    async def delete(self, merchant_id: UUID) -> None: ...
+    async def list_all(self) -> list[MerchantShareRule]: ...

@@ -55,7 +55,7 @@ async def google_start(request: Request):
 async def google_callback(request: Request):
     if not settings.auth_enabled:
         raise HTTPException(status_code=404)
-    base = request.session.pop("oauth_public_base", None) or (settings.public_app_url or "").rstrip("/")
+    base = request.session.pop("oauth_public_base", None) or resolve_public_base(request)
     token = await oauth.google.authorize_access_token(request)
     user = await _google_userinfo(token)
     email = user.get("email")

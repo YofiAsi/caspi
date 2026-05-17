@@ -50,6 +50,7 @@ class SqlPaymentRepository(PaymentRepository):
             existing.extra = payment.extra
             existing.share_amount = payment.shared_payment.my_share.amount if payment.shared_payment else None
             existing.share_currency = payment.shared_payment.my_share.currency if payment.shared_payment else None
+            existing.is_shared = payment.is_shared
             await self._session.execute(
                 delete(PaymentTagModel).where(PaymentTagModel.payment_id == existing.payment_id)
             )

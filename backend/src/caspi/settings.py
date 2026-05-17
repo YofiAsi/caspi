@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     isracard_password: str
     isracard_full_sync_max_months: int = 120
 
+    splitwise_manager_url: str | None = None
+
     auto_scrape_enabled: bool = True
     auto_scrape_interval_minutes: int = 60
     auto_scrape_lookback_days: int = 2
@@ -65,8 +67,6 @@ class Settings(BaseSettings):
             missing.append("ALLOWED_GOOGLE_EMAIL")
         if not (self.session_secret or "").strip():
             missing.append("SESSION_SECRET")
-        if not (self.public_app_url or "").strip():
-            missing.append("PUBLIC_APP_URL")
         cb = self.oauth_google_callback_path
         if ".." in cb or "\n" in cb or " " in cb:
             raise ValueError("OAUTH_GOOGLE_REDIRECT_PATH must not contain .., newlines, or spaces")

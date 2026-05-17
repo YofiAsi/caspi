@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import UUID, Date, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import UUID, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -54,6 +54,7 @@ class PaymentModel(Base):
     merchant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("merchants.id"), nullable=False)
     share_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     share_currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    is_shared: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     payment_type: Mapped[str] = mapped_column(String, nullable=False, default="unknown")
     category_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     extra: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)

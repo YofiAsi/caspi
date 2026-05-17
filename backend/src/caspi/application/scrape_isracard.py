@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -7,6 +8,35 @@ import httpx
 from caspi.domain.entities import ImportBatch, Payment
 from caspi.domain.repositories import ImportBatchRepository, MerchantRepository, PaymentRepository
 from caspi.domain.value_objects import ImportId, Money, PaymentId, PaymentSource
+from caspi.infrastructure.splitwise_manager_client import (
+    SplitwiseManagerClient,
+    SplitwiseManagerError,
+    SplitwiseManagerUnavailable,
+)
+from caspi.settings import settings
+
+log = logging.getLogger(__name__)
+
+
+async def _maybe_apply_splitwise_rule(payment: Payment) -> None:
+    client = SplitwiseManagerClient(settings.splitwise_manager_url)
+    if not client.configured:
+        return
+    try:
+        result = await client.apply_rule(
+            {
+                "payment_id": str(payment.payment_id.value),
+                "merchant_id": str(payment.merchant_id.value),
+                "amount": str(payment.amount.amount),
+                "currency": payment.amount.currency,
+                "description": payment.description,
+                "date": payment.date.isoformat(),
+            }
+        )
+        if result.get("shared"):
+            log.info("splitwise rule applied for payment %s", payment.payment_id.value)
+    except (SplitwiseManagerUnavailable, SplitwiseManagerError) as e:
+        log.warning("splitwise apply_rule failed for %s: %s", payment.payment_id.value, e)
 
 
 @dataclass
@@ -111,6 +141,7 @@ async def import_isracard_accounts(
     await import_batch_repo.save(import_batch)
     for payment in payments:
         await payment_repo.save(payment)
+        await _maybe_apply_splitwise_rule(payment)
 
     return ScrapeIsracardResult(
         import_id=import_id,
