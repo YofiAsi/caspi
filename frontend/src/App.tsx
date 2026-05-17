@@ -1,7 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
-import { AuthGate, type AuthContext } from './components/AuthGate'
 import { CollectionDetailPage } from './pages/CollectionDetailPage'
 import { HomePage } from './pages/HomePage'
 import { ExpensesPage } from './pages/ExpensesPage'
@@ -17,10 +16,10 @@ const queryClient = new QueryClient({
   },
 })
 
-function AppRoutes({ auth }: { auth: AuthContext }) {
+function AppRoutes() {
   return (
     <Routes>
-      <Route element={<AppLayout auth={auth} />}>
+      <Route element={<AppLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
@@ -38,7 +37,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AuthGate>{(auth) => <AppRoutes auth={auth} />}</AuthGate>
+        <AppRoutes />
       </BrowserRouter>
     </QueryClientProvider>
   )

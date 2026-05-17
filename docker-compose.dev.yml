@@ -1,5 +1,6 @@
 services:
   db:
+    container_name: caspi-db
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -17,6 +18,7 @@ services:
       retries: 5
 
   backend:
+    container_name: caspi-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -44,12 +46,14 @@ services:
              uvicorn caspi.interfaces.app:app --host 0.0.0.0 --port 8000 --reload"
 
   redis:
+    container_name: caspi-redis
     image: redis:7-alpine
     restart: unless-stopped
     ports:
       - "6379:6379"
 
   splitwise-manager:
+    container_name: caspi-splitwise-manager
     build:
       context: ./splitwise-manager
       dockerfile: Dockerfile
@@ -78,6 +82,7 @@ services:
              uvicorn splitwise_manager.main:app --host 0.0.0.0 --port 8001 --reload"
 
   splitwise-worker:
+    container_name: caspi-splitwise-worker
     build:
       context: ./splitwise-manager
       dockerfile: Dockerfile
@@ -101,6 +106,7 @@ services:
     command: celery -A splitwise_manager.tasks.celery_app worker --loglevel=info
 
   splitwise-beat:
+    container_name: caspi-splitwise-beat
     build:
       context: ./splitwise-manager
       dockerfile: Dockerfile
@@ -121,6 +127,7 @@ services:
     command: celery -A splitwise_manager.tasks.celery_app beat --loglevel=info
 
   scraper:
+    container_name: caspi-scraper
     build:
       context: ./scraper
       dockerfile: Dockerfile
@@ -133,6 +140,7 @@ services:
     command: node --watch src/index.js
 
   frontend:
+    container_name: caspi-frontend
     image: node:20-slim
     working_dir: /app
     restart: unless-stopped
