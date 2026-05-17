@@ -1,5 +1,6 @@
 services:
   db:
+    container_name: caspi-db
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -17,6 +18,7 @@ services:
       - app
 
   backend:
+    container_name: caspi-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -39,12 +41,14 @@ services:
       - app
 
   redis:
+    container_name: caspi-redis
     image: redis:7-alpine
     restart: unless-stopped
     networks:
       - app
 
   splitwise-manager:
+    container_name: caspi-splitwise-manager
     build:
       context: ./splitwise-manager
       dockerfile: Dockerfile
@@ -67,6 +71,7 @@ services:
       - app
 
   splitwise-worker:
+    container_name: caspi-splitwise-worker
     build:
       context: ./splitwise-manager
       dockerfile: Dockerfile
@@ -90,6 +95,7 @@ services:
       - app
 
   splitwise-beat:
+    container_name: caspi-splitwise-beat
     build:
       context: ./splitwise-manager
       dockerfile: Dockerfile
@@ -110,6 +116,7 @@ services:
       - app
 
   scraper:
+    container_name: caspi-scraper
     build:
       context: ./scraper
       dockerfile: Dockerfile
@@ -120,6 +127,7 @@ services:
       - app
 
   frontend:
+    container_name: caspi-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
