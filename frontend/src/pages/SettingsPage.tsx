@@ -1,15 +1,27 @@
 import { useState } from 'react'
 import { useTheme } from 'next-themes'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { CollapsingHeader } from '../components/CollapsingHeader'
 import { ScrapeModal } from '../components/ScrapeModal'
+import { SplitwiseConnectDialog } from '../components/SplitwiseConnectDialog'
 import { useSyncContext } from '../contexts/SyncContext'
 import { bankWaitLabel } from '../hooks/useScrapeSync'
+import { useSplitwiseStatus } from '../hooks/useSplitwise'
+import { api } from '../api/client'
 
 const THEME_OPTIONS = ['light', 'dark', 'system'] as const
 
 export function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const [showScrapeModal, setShowScrapeModal] = useState(false)
+  const [showSplitwiseDialog, setShowSplitwiseDialog] = useState(false)
+
+  const queryClient = useQueryClient()
+  const { data: swStatus } = useSplitwiseStatus()
+  const disconnectMutation = useMutation({
+    mutationFn: () => api.splitwise.disconnect(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['splitwise', 'status'] }),
+  })
   const { state: sync, start: startSync, cancel: cancelSync, dismiss: dismissSync } = useSyncContext()
 
   const completedCount = sync.progress?.current ?? 0
@@ -180,6 +192,59 @@ export function SettingsPage() {
             </div>
           </div>
 
+          {/* Integrations */}
+          <div className="mb-5">
+            <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-2 px-0.5">Integrations</p>
+            <div className="bg-surface rounded-[18px] overflow-hidden" style={{ border: '0.5px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-3 px-4 py-3.5">
+                <div className="w-8 h-8 rounded-[9px] bg-muted flex items-center justify-center shrink-0">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-fg-muted">
+                    <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] text-fg">Splitwise</p>
+                  {swStatus?.connected ? (
+                    <p className="text-[11px] text-success-fg">
+                      Connected
+                      {swStatus.last_validated_at
+                        ? ` · last verified ${new Date(swStatus.last_validated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`
+                        : ''}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-fg-subtle">Not connected</p>
+                  )}
+                </div>
+                {swStatus?.connected ? (
+                  <button
+                    type="button"
+                    onClick={() => disconnectMutation.mutate()}
+                    disabled={disconnectMutation.isPending}
+                    className="text-[12px] text-danger-fg font-medium hover:opacity-80 disabled:opacity-40 transition-opacity shrink-0"
+                  >
+                    Disconnect
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowSplitwiseDialog(true)}
+                    className="text-[12px] text-accent font-medium hover:opacity-80 transition-opacity shrink-0"
+                  >
+                    Connect
+                  </button>
+                )}
+              </div>
+              {swStatus?.connected && swStatus.failed > 0 && (
+                <div className="px-4 pb-3.5 pt-0 border-t border-border-subtle">
+                  <p className="text-xs text-warning-fg pt-3">
+                    {swStatus.failed} push{swStatus.failed === 1 ? '' : 'es'} failed — retry from the expense detail view.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
         </div>
       </CollapsingHeader>
 
@@ -191,6 +256,10 @@ export function SettingsPage() {
             startSync(params)
           }}
         />
+      )}
+
+      {showSplitwiseDialog && (
+        <SplitwiseConnectDialog onClose={() => setShowSplitwiseDialog(false)} />
       )}
     </>
   )

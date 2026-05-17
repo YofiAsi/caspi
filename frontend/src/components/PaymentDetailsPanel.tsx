@@ -7,6 +7,8 @@ import { getTagAccentColorById, type TagColorVariant } from '../lib/tagColors'
 import { formatCurrency } from '../utils/currency'
 import { paymentShowsOriginalCurrency } from '../utils/paymentExtra'
 import { TagChip } from './TagChip'
+import { SplitwisePanelSection } from './SplitwisePanelSection'
+import { MerchantShareRuleSection } from './MerchantShareRuleSection'
 
 interface Props {
   payment: Payment | null
@@ -357,6 +359,7 @@ function CollectionAutocompleteField({
 
 interface ContentProps {
   payment: Payment
+  onPaymentUpdate?: (p: Payment) => void
   paymentTags: string[]
   merchantTags: string[]
   tagInput: string
@@ -389,6 +392,7 @@ interface ContentProps {
 
 function PanelContent({
   payment,
+  onPaymentUpdate,
   paymentTags,
   merchantTags,
   tagInput,
@@ -545,6 +549,9 @@ function PanelContent({
             </div>
           )}
         </div>
+
+        <SplitwisePanelSection payment={payment} onPaymentUpdate={onPaymentUpdate} />
+        <MerchantShareRuleSection payment={payment} />
 
         <div>
           <div className="flex flex-wrap gap-1.5 min-h-[1.5rem]">
@@ -1036,6 +1043,7 @@ export function PaymentDetailsPanel({ payment, onClose, onPaymentUpdate }: Props
   }
 
   const contentProps: Omit<ContentProps, 'payment'> = {
+    onPaymentUpdate,
     paymentTags,
     merchantTags,
     tagInput,

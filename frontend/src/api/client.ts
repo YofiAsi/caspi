@@ -10,6 +10,15 @@ import type {
   PaymentSummary,
   PaymentTimeseriesResponse,
   ScrapeResult,
+  SplitwiseFailedEntry,
+  SplitwiseGroup,
+  SplitwiseRetryResponse,
+  SplitwiseRule,
+  SplitwiseRuleBody,
+  SplitwiseShareRequest,
+  SplitwiseShareResponse,
+  SplitwiseStatus,
+  SplitwiseUnshareResponse,
   TagItem,
 } from '../types'
 
@@ -185,5 +194,40 @@ export const api = {
       granularity: 'daily' | 'weekly' | 'monthly',
     ): Promise<CollectionTimeseriesResponse> =>
       request(`/collections/${collectionId}/timeseries?granularity=${granularity}`),
+  },
+  splitwise: {
+    status: (): Promise<SplitwiseStatus> => request('/splitwise/status'),
+    connect: (body: {
+      consumer_key: string
+      consumer_secret: string
+      api_key: string
+    }): Promise<{ source: string; splitwise_user_id: number }> =>
+      request('/splitwise/connect', { method: 'POST', body: JSON.stringify(body) }),
+    disconnect: (): Promise<void> =>
+      request('/splitwise/disconnect', { method: 'POST' }),
+    groups: (): Promise<{ groups: SplitwiseGroup[] }> => request('/splitwise/groups'),
+    share: (body: SplitwiseShareRequest): Promise<SplitwiseShareResponse> =>
+      request('/splitwise/share', { method: 'POST', body: JSON.stringify(body) }),
+    unshare: (paymentId: string, deleteRemote: boolean): Promise<SplitwiseUnshareResponse> =>
+      request(
+        `/splitwise/share/${paymentId}?delete_remote=${deleteRemote ? 'true' : 'false'}`,
+        { method: 'DELETE' },
+      ),
+    getRule: (merchantId: string): Promise<SplitwiseRule | null> =>
+      request<SplitwiseRule>(`/splitwise/rules/${merchantId}`).catch((e: Error) => {
+        if (e.message.includes('rule not found') || e.message.includes('404')) return null
+        throw e
+      }),
+    putRule: (merchantId: string, body: SplitwiseRuleBody): Promise<SplitwiseRule> =>
+      request(`/splitwise/rules/${merchantId}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+    deleteRule: (merchantId: string): Promise<void> =>
+      request(`/splitwise/rules/${merchantId}`, { method: 'DELETE' }),
+    listFailed: (limit = 100): Promise<{ entries: SplitwiseFailedEntry[] }> =>
+      request(`/splitwise/outbox/failed?limit=${limit}`),
+    retry: (paymentId: string): Promise<SplitwiseRetryResponse> =>
+      request(`/splitwise/retry/${paymentId}`, { method: 'POST' }),
   },
 }

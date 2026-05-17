@@ -203,3 +203,102 @@ export interface PaymentTimeseriesResponse {
   granularity: string
   rows: PaymentTimeseriesRow[]
 }
+
+// --- Splitwise integration ---
+
+export type SplitMethod = 'equal' | 'percentage' | 'shares'
+
+export interface SplitwiseStatus {
+  connected: boolean
+  source: string | null
+  splitwise_user_id: number | null
+  last_validated_at: string | null
+  queued: number
+  failed: number
+}
+
+export interface SplitwiseGroupMember {
+  user_id: number
+  first_name: string
+  last_name: string | null
+}
+
+export interface SplitwiseGroup {
+  id: number
+  name: string
+  members: SplitwiseGroupMember[]
+}
+
+export interface SplitwiseEqualParams {
+  member_ids: number[]
+}
+
+export interface SplitwiseWeightedMember {
+  user_id: number
+  value: number
+}
+
+export interface SplitwiseWeightedParams {
+  members: SplitwiseWeightedMember[]
+}
+
+export type SplitwiseSplitParams =
+  | SplitwiseEqualParams
+  | SplitwiseWeightedParams
+  | Record<string, unknown>
+
+export interface SplitwiseShareRequest {
+  payment_id: string
+  amount: number | string
+  currency: string
+  group_id: number
+  split_method: SplitMethod
+  split_params: SplitwiseSplitParams
+  description?: string
+  date?: string | null
+}
+
+export interface SplitwiseShareResponse {
+  my_share_amount: string
+  my_share_currency: string
+  outbox_id: string
+}
+
+export interface SplitwiseUnshareResponse {
+  delete_enqueued: boolean
+  outbox_id: string | null
+}
+
+export interface SplitwiseRule {
+  merchant_id: string
+  enabled: boolean
+  splitwise_group_id: number
+  split_method: SplitMethod
+  split_params: SplitwiseSplitParams
+  currency: string
+}
+
+export interface SplitwiseRuleBody {
+  enabled: boolean
+  splitwise_group_id: number
+  split_method: SplitMethod
+  split_params: SplitwiseSplitParams
+  currency: string
+}
+
+export interface SplitwiseFailedEntry {
+  id: string
+  payment_id: string | null
+  operation: 'push' | 'delete' | string
+  status: string
+  attempts: number
+  last_error: string | null
+  next_attempt_at: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface SplitwiseRetryResponse {
+  outbox_id: string | null
+  requeued: boolean
+}
