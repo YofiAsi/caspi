@@ -9,13 +9,13 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
-    networks:
-      - app
 
   backend:
     container_name: caspi-backend
@@ -29,7 +29,8 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       SCRAPER_URL: ${SCRAPER_URL}
       SPLITWISE_MANAGER_URL: http://splitwise-manager:8001
-      ENVIRONMENT: production
+    ports:
+      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -37,15 +38,19 @@ services:
         condition: service_started
       splitwise-manager:
         condition: service_started
-    networks:
-      - app
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/alembic:/app/alembic
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn caspi.interfaces.app:app --host 0.0.0.0 --port 8000 --reload"
 
   redis:
     container_name: caspi-redis
     image: redis:7-alpine
     restart: unless-stopped
-    networks:
-      - app
+    ports:
+      - "6379:6379"
 
   splitwise-manager:
     container_name: caspi-splitwise-manager
@@ -62,13 +67,19 @@ services:
       SW_CONSUMER_KEY: ${SW_CONSUMER_KEY:-}
       SW_CONSUMER_SECRET: ${SW_CONSUMER_SECRET:-}
       SW_API_KEY: ${SW_API_KEY:-}
+    ports:
+      - "8001:8001"
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_started
-    networks:
-      - app
+    volumes:
+      - ./splitwise-manager/src:/app/src
+      - ./splitwise-manager/alembic:/app/alembic
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn splitwise_manager.main:app --host 0.0.0.0 --port 8001 --reload"
 
   splitwise-worker:
     container_name: caspi-splitwise-worker
@@ -76,7 +87,6 @@ services:
       context: ./splitwise-manager
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: celery -A splitwise_manager.tasks.celery_app worker --loglevel=info
     env_file:
       - .env
     environment:
@@ -91,8 +101,9 @@ services:
         condition: service_started
       redis:
         condition: service_started
-    networks:
-      - app
+    volumes:
+      - ./splitwise-manager/src:/app/src
+    command: celery -A splitwise_manager.tasks.celery_app worker --loglevel=info
 
   splitwise-beat:
     container_name: caspi-splitwise-beat
@@ -100,7 +111,6 @@ services:
       context: ./splitwise-manager
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: celery -A splitwise_manager.tasks.celery_app beat --loglevel=info
     env_file:
       - .env
     environment:
@@ -112,8 +122,9 @@ services:
         condition: service_started
       redis:
         condition: service_started
-    networks:
-      - app
+    volumes:
+      - ./splitwise-manager/src:/app/src
+    command: celery -A splitwise_manager.tasks.celery_app beat --loglevel=info
 
   scraper:
     container_name: caspi-scraper
@@ -123,25 +134,27 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3001
-    networks:
-      - app
+    volumes:
+      - ./scraper/src:/app/src
+    user: root
+    command: node --watch src/index.js
 
   frontend:
     container_name: caspi-frontend
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: node:20-slim
+    working_dir: /app
     restart: unless-stopped
-    expose:
-      - "3000"
+    environment:
+      API_PROXY_TARGET: http://backend:8000
+    ports:
+      - "3000:3000"
     depends_on:
       - backend
-    networks:
-      - app
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: sh -c "npm install && npm run dev"
 
 volumes:
   postgres_data:
-
-networks:
-  app:
-    driver: bridge
+  frontend_node_modules:
