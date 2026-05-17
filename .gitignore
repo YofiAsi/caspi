@@ -12,3 +12,5 @@ backend/.venv/
 .mypy_cache/
 node_modules/
 CLAUDE.md
+.cursor/
+*.log
