@@ -23,6 +23,8 @@ class PaymentResponse(BaseModel):
     collection_ids: list[str]
     share_amount: Optional[Decimal]
     share_currency: Optional[str]
+    is_shared: bool = False
+    splitwise_status: Optional[str] = None
     extra: dict
 
 

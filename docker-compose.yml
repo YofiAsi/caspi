@@ -26,11 +26,85 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       SCRAPER_URL: ${SCRAPER_URL}
+      SPLITWISE_MANAGER_URL: http://splitwise-manager:8001
       ENVIRONMENT: production
     depends_on:
       db:
         condition: service_healthy
       scraper:
+        condition: service_started
+      splitwise-manager:
+        condition: service_started
+    networks:
+      - app
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - app
+
+  splitwise-manager:
+    build:
+      context: ./splitwise-manager
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379/0
+      CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY}
+      SW_CONSUMER_KEY: ${SW_CONSUMER_KEY:-}
+      SW_CONSUMER_SECRET: ${SW_CONSUMER_SECRET:-}
+      SW_API_KEY: ${SW_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - app
+
+  splitwise-worker:
+    build:
+      context: ./splitwise-manager
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: celery -A splitwise_manager.tasks.celery_app worker --loglevel=info
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379/0
+      CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY}
+      SW_CONSUMER_KEY: ${SW_CONSUMER_KEY:-}
+      SW_CONSUMER_SECRET: ${SW_CONSUMER_SECRET:-}
+      SW_API_KEY: ${SW_API_KEY:-}
+    depends_on:
+      splitwise-manager:
+        condition: service_started
+      redis:
+        condition: service_started
+    networks:
+      - app
+
+  splitwise-beat:
+    build:
+      context: ./splitwise-manager
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: celery -A splitwise_manager.tasks.celery_app beat --loglevel=info
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379/0
+      CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY}
+    depends_on:
+      splitwise-manager:
+        condition: service_started
+      redis:
         condition: service_started
     networks:
       - app
@@ -56,7 +130,6 @@ services:
       - backend
     networks:
       - app
-      - dokploy-network
 
 volumes:
   postgres_data:
@@ -64,6 +137,3 @@ volumes:
 networks:
   app:
     driver: bridge
-  dokploy-network:
-    external: true
-    name: dokploy-network

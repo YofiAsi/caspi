@@ -5,9 +5,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from caspi.interfaces.routers.collections import router as collections_router
+from caspi.interfaces.routers.dev import router as dev_router
 from caspi.interfaces.routers.merchants import router as merchants_router
 from caspi.interfaces.routers.payments import router as payments_router
 from caspi.interfaces.routers.scrape import router as scrape_router
+from caspi.interfaces.routers.splitwise import router as splitwise_router
 from caspi.interfaces.routers.tags import router as tags_router
 from caspi.settings import settings
 
@@ -42,6 +44,8 @@ app.include_router(merchants_router)
 app.include_router(collections_router)
 app.include_router(payments_router)
 app.include_router(tags_router)
+app.include_router(splitwise_router)
+app.include_router(dev_router)
 
 
 @app.get("/health")

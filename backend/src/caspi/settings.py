@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     isracard_password: str
     isracard_full_sync_max_months: int = 120
 
+    splitwise_manager_url: str | None = None
+
     auto_scrape_enabled: bool = True
     auto_scrape_interval_minutes: int = 60
     auto_scrape_lookback_days: int = 2

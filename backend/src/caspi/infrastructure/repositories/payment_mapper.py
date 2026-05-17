@@ -37,6 +37,7 @@ def payment_model_to_domain(model: PaymentModel) -> Payment:
         shared_payment=shared_payment,
         payment_tag_ids=tag_ids,
         collection_ids=coll_ids,
+        is_shared=bool(getattr(model, "is_shared", False)),
         extra=model.extra or {},
     )
 
@@ -55,6 +56,7 @@ def payment_domain_to_model(payment: Payment) -> PaymentModel:
         merchant_id=payment.merchant_id.value,
         share_amount=payment.shared_payment.my_share.amount if payment.shared_payment else None,
         share_currency=payment.shared_payment.my_share.currency if payment.shared_payment else None,
+        is_shared=payment.is_shared,
         payment_type=payment.payment_type.value,
         category_id=payment.category_id.value if payment.category_id else None,
         extra=payment.extra,

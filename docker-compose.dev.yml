@@ -26,6 +26,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       SCRAPER_URL: ${SCRAPER_URL}
+      SPLITWISE_MANAGER_URL: http://splitwise-manager:8001
     ports:
       - "8000:8000"
     depends_on:
@@ -33,12 +34,91 @@ services:
         condition: service_healthy
       scraper:
         condition: service_started
+      splitwise-manager:
+        condition: service_started
     volumes:
       - ./backend/src:/app/src
       - ./backend/alembic:/app/alembic
     command: >
       sh -c "alembic upgrade head &&
              uvicorn caspi.interfaces.app:app --host 0.0.0.0 --port 8000 --reload"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  splitwise-manager:
+    build:
+      context: ./splitwise-manager
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379/0
+      CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY}
+      SW_CONSUMER_KEY: ${SW_CONSUMER_KEY:-}
+      SW_CONSUMER_SECRET: ${SW_CONSUMER_SECRET:-}
+      SW_API_KEY: ${SW_API_KEY:-}
+    ports:
+      - "8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./splitwise-manager/src:/app/src
+      - ./splitwise-manager/alembic:/app/alembic
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn splitwise_manager.main:app --host 0.0.0.0 --port 8001 --reload"
+
+  splitwise-worker:
+    build:
+      context: ./splitwise-manager
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379/0
+      CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY}
+      SW_CONSUMER_KEY: ${SW_CONSUMER_KEY:-}
+      SW_CONSUMER_SECRET: ${SW_CONSUMER_SECRET:-}
+      SW_API_KEY: ${SW_API_KEY:-}
+    depends_on:
+      splitwise-manager:
+        condition: service_started
+      redis:
+        condition: service_started
+    volumes:
+      - ./splitwise-manager/src:/app/src
+    command: celery -A splitwise_manager.tasks.celery_app worker --loglevel=info
+
+  splitwise-beat:
+    build:
+      context: ./splitwise-manager
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379/0
+      CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY}
+    depends_on:
+      splitwise-manager:
+        condition: service_started
+      redis:
+        condition: service_started
+    volumes:
+      - ./splitwise-manager/src:/app/src
+    command: celery -A splitwise_manager.tasks.celery_app beat --loglevel=info
 
   scraper:
     build:
