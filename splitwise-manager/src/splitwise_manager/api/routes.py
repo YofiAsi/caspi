@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -45,7 +46,10 @@ from splitwise_manager.infrastructure.repositories import (
     SqlMerchantRuleRepository,
     SqlOutboxRepository,
 )
+from splitwise_manager.infrastructure.crypto import CryptoError
 from splitwise_manager.infrastructure.splitwise_client import SplitwiseAPIError
+
+log = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -92,6 +96,9 @@ async def connect_endpoint(
             creds_repo=SqlCredentialsRepository(session),
         )
         await session.commit()
+    except CryptoError as e:
+        log.error("connect failed (encryption): %s", e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except SplitwiseAPIError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return ConnectResponse(source=result.source, splitwise_user_id=result.splitwise_user_id)

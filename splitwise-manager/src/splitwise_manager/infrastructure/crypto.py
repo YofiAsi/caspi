@@ -19,6 +19,11 @@ def _fernet() -> Fernet:
         raise CryptoError(f"invalid CREDENTIALS_ENCRYPTION_KEY: {e}") from e
 
 
+def validate_encryption_key() -> None:
+    """Raise CryptoError if CREDENTIALS_ENCRYPTION_KEY is missing or not a Fernet key."""
+    _fernet()
+
+
 def encrypt(plaintext: str) -> bytes:
     return _fernet().encrypt(plaintext.encode("utf-8"))
 
