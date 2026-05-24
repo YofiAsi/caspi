@@ -29,6 +29,12 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       SCRAPER_URL: ${SCRAPER_URL}
       SPLITWISE_MANAGER_URL: http://splitwise-manager:8001
+      CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_API_BASE: ${AI_API_BASE:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
     depends_on:

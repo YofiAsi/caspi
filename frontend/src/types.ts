@@ -302,3 +302,53 @@ export interface SplitwiseRetryResponse {
   outbox_id: string | null
   requeued: boolean
 }
+
+export interface ToolCallFunction {
+  name: string
+  arguments: string
+}
+
+export interface ToolCall {
+  id: string
+  type: string
+  function: ToolCallFunction
+}
+
+export interface ChatMessage {
+  role: string
+  content?: string | null
+  tool_calls?: ToolCall[]
+  tool_call_id?: string
+  name?: string
+}
+
+export interface PendingAction {
+  action_id: string
+  tool_name: string
+  arguments: Record<string, unknown>
+  summary: string
+}
+
+export interface ChatResponse {
+  status: 'message' | 'pending_action' | 'error'
+  messages: ChatMessage[]
+  pending_action?: PendingAction | null
+  error?: string | null
+}
+
+export interface AISettings {
+  configured: boolean
+  source: string | null
+  provider: string | null
+  model: string | null
+  api_base: string | null
+  has_api_key: boolean
+}
+
+export interface AISettingsBody {
+  provider?: string | null
+  model?: string | null
+  api_base?: string | null
+  api_key?: string | null
+  clear_api_key?: boolean
+}

@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { CollapsingHeader } from '../components/CollapsingHeader'
 import { ScrapeModal } from '../components/ScrapeModal'
 import { SplitwiseConnectDialog } from '../components/SplitwiseConnectDialog'
+import { AIProviderDialog } from '../components/AIProviderDialog'
 import { useSyncContext } from '../contexts/SyncContext'
 import { bankWaitLabel } from '../hooks/useScrapeSync'
 import { useSplitwiseStatus } from '../hooks/useSplitwise'
@@ -15,6 +16,7 @@ export function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const [showScrapeModal, setShowScrapeModal] = useState(false)
   const [showSplitwiseDialog, setShowSplitwiseDialog] = useState(false)
+  const [showAIDialog, setShowAIDialog] = useState(false)
 
   const queryClient = useQueryClient()
   const { data: swStatus } = useSplitwiseStatus()
@@ -196,6 +198,20 @@ export function SettingsPage() {
           <div className="mb-5">
             <p className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider mb-2 px-0.5">Integrations</p>
             <div className="bg-surface rounded-[18px] overflow-hidden" style={{ border: '0.5px solid rgba(255,255,255,0.06)' }}>
+              <button
+                type="button"
+                onClick={() => setShowAIDialog(true)}
+                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-hover-surface transition-colors border-b border-border-subtle"
+              >
+                <div className="w-8 h-8 rounded-[9px] bg-muted flex items-center justify-center shrink-0">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-fg-muted">
+                    <path d="M12 3v2M12 19v2M5 8l1.5 1.5M17.5 14.5L19 16M3 12h2M19 12h2M5 16l1.5-1.5M17.5 9.5L19 8" strokeLinecap="round" />
+                    <circle cx="12" cy="12" r="4" />
+                  </svg>
+                </div>
+                <span className="flex-1 text-left text-[14px] text-fg">AI Assistant</span>
+                <svg className="text-fg-subtle opacity-25" width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1L6 6L1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>
               <div className="flex items-center gap-3 px-4 py-3.5">
                 <div className="w-8 h-8 rounded-[9px] bg-muted flex items-center justify-center shrink-0">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-fg-muted">
@@ -260,6 +276,10 @@ export function SettingsPage() {
 
       {showSplitwiseDialog && (
         <SplitwiseConnectDialog onClose={() => setShowSplitwiseDialog(false)} />
+      )}
+
+      {showAIDialog && (
+        <AIProviderDialog onClose={() => setShowAIDialog(false)} />
       )}
     </>
   )

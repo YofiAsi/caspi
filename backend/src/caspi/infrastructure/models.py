@@ -2,7 +2,19 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import UUID, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import (
+    UUID,
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    Numeric,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -102,6 +114,24 @@ class CollectionModel(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+
+
+class AISettingsModel(Base):
+    __tablename__ = "ai_settings"
+    __table_args__ = (UniqueConstraint("singleton_key", name="uq_ai_settings_singleton"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    singleton_key: Mapped[str] = mapped_column(String, nullable=False, default="default")
+    provider: Mapped[str | None] = mapped_column(String, nullable=True)
+    model: Mapped[str | None] = mapped_column(String, nullable=True)
+    api_base: Mapped[str | None] = mapped_column(String, nullable=True)
+    api_key_enc: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
 
 
 class PaymentCollectionModel(Base):

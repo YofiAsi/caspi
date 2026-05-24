@@ -25,6 +25,16 @@ const tabs = [
     ),
   },
   {
+    label: 'Chat',
+    to: '/chat',
+    end: false,
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
+        <path d="M21 15a2 2 0 01-2 2H8l-5 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" stroke="currentColor" strokeWidth={1.6} strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
     label: 'Analytics',
     to: '/analytics',
     end: false,
