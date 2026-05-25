@@ -43,9 +43,19 @@ export function ChatPage() {
               Ask about spending, tags, collections, or Splitwise rules.
             </p>
           )}
-          {visibleMessages.map((m, i) => (
-            <ChatMessageBubble key={`${m.role}-${i}`} message={m} />
-          ))}
+          {visibleMessages.map((m, i) => {
+            const prev = i > 0 ? visibleMessages[i - 1] : null
+            if (
+              m.role === 'tool' &&
+              prev?.role === 'tool' &&
+              m.content &&
+              prev.content &&
+              m.content === prev.content
+            ) {
+              return null
+            }
+            return <ChatMessageBubble key={`${m.role}-${i}`} message={m} />
+          })}
           {pending && (
             <ActionApprovalBubble
               pending={pending}

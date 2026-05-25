@@ -4,15 +4,28 @@ interface Props {
   message: ChatMessage
 }
 
+function isThinkingOnlyContent(text: string): boolean {
+  const trimmed = text.trim()
+  if (!trimmed.startsWith('{')) return false
+  try {
+    const data = JSON.parse(trimmed) as Record<string, unknown>
+    if (typeof data.thinking === 'string' && Object.keys(data).length === 1) return true
+    if (typeof data.thinking === 'string' && !data.content) return true
+  } catch {
+    return false
+  }
+  return false
+}
+
 function compactToolLabel(content: string): string | null {
   try {
     const data = JSON.parse(content) as Record<string, unknown>
     if (data.error) return `Lookup failed: ${String(data.error)}`
-    if (data.tags) return 'Looked up tags'
+    if (Array.isArray(data.tags)) return 'Looked up tags'
     if (data.collections) return 'Looked up collections'
     if (data.merchants) return 'Looked up merchants'
     if (data.items) return 'Looked up payments'
-    if (data.payment_count !== undefined) return 'Summarized spending'
+    if (data.payment_count !== undefined && data.by_tag !== undefined) return 'Summarized spending'
     if (data.rows) return 'Loaded spending over time'
     if (data.rule !== undefined) return 'Checked Splitwise rule'
     if (data.groups) return 'Listed Splitwise groups'
@@ -29,7 +42,7 @@ export function ChatMessageBubble({ message }: Props) {
     const label = message.content ? compactToolLabel(message.content) : null
     if (!label) return null
     return (
-      <div className="flex justify-center px-4 py-1">
+      <div className="flex justify-center px-4 py-1" data-tool-hint={label}>
         <span className="text-[11px] text-fg-subtle italic">{label}</span>
       </div>
     )
@@ -41,6 +54,14 @@ export function ChatMessageBubble({ message }: Props) {
 
   const isUser = message.role === 'user'
   const text = message.content ?? ''
+
+  if (!isUser && isThinkingOnlyContent(text)) {
+    return null
+  }
+
+  if (!isUser && !text.trim()) {
+    return null
+  }
 
   return (
     <div className={`flex px-4 py-1.5 ${isUser ? 'justify-end' : 'justify-start'}`}>

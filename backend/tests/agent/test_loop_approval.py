@@ -144,3 +144,37 @@ async def test_reject_no_mutation(monkeypatch, llm_config):
         config=llm_config,
     )
     assert executed == []
+
+
+@pytest.mark.asyncio
+async def test_summarize_error_returns_tool_result_not_500(monkeypatch, llm_config):
+    call_count = 0
+
+    async def fake_acompletion(_config, messages, *, tools=None):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return _assistant_tool_call(
+                "tc-write",
+                "tag_payment",
+                {"payment_id": "00000000-0000-0000-0000-000000000001", "tag_name": "ai"},
+            )
+        return _assistant_text("The tag does not exist yet — create it first with create_tag.")
+
+    monkeypatch.setattr("caspi.agent.loop.acompletion", fake_acompletion)
+    db = AsyncMock()
+    spec = get_tool("tag_payment")
+
+    async def failing_summarize(_db, _args):
+        raise ValueError("Tag not found: ai")
+
+    spec.summarize = failing_summarize
+
+    resp = await run_agent_loop(
+        db,
+        [{"role": "user", "content": "tag payment with ai"}],
+        config=llm_config,
+    )
+    assert resp.status == "message"
+    tool_msgs = [m for m in resp.messages if m.get("role") == "tool"]
+    assert any("Tag not found" in (m.get("content") or "") for m in tool_msgs)
