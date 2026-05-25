@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from caspi.interfaces.routers.agent import router as agent_router
+from caspi.interfaces.routers.ai_settings import router as ai_settings_router
 from caspi.interfaces.routers.collections import router as collections_router
 from caspi.interfaces.routers.dev import router as dev_router
 from caspi.interfaces.routers.merchants import router as merchants_router
@@ -46,6 +48,8 @@ app.include_router(payments_router)
 app.include_router(tags_router)
 app.include_router(splitwise_router)
 app.include_router(dev_router)
+app.include_router(agent_router)
+app.include_router(ai_settings_router)
 
 
 @app.get("/health")

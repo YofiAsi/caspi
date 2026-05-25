@@ -6,6 +6,7 @@ import { HomePage } from './pages/HomePage'
 import { ExpensesPage } from './pages/ExpensesPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { ChatPage } from './pages/ChatPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,6 +24,7 @@ function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/chat" element={<ChatPage />} />
         <Route path="/collections/:collectionId" element={<CollectionDetailPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         {/* Redirects from old routes */}

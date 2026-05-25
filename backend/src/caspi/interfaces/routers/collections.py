@@ -1,13 +1,14 @@
 from datetime import date
 from decimal import Decimal
 from enum import Enum
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from caspi.application.collections_ops import create_collection as app_create_collection
 from caspi.application.collections.stats import list_collections_with_stats
 from caspi.application.payments.read import collection_tag_slices, collection_timeseries
 from caspi.infrastructure.database import get_db
@@ -69,20 +70,16 @@ async def list_collections(db: AsyncSession = Depends(get_db)):
 
 @router.post("", response_model=CollectionWithStatsResponse, status_code=201)
 async def create_collection(body: CreateCollectionBody, db: AsyncSession = Depends(get_db)):
-    name = body.name.strip()
-    if not name:
-        raise HTTPException(status_code=422, detail="name must not be empty")
-    c = CollectionModel(id=uuid4(), name=name)
-    db.add(c)
     try:
-        await db.commit()
-    except IntegrityError:
-        await db.rollback()
-        raise HTTPException(status_code=409, detail="A collection with this name already exists") from None
-    await db.refresh(c)
+        cid, name = await app_create_collection(db, body.name)
+    except ValueError as e:
+        msg = str(e)
+        code = 409 if "already exists" in msg else 422
+        raise HTTPException(status_code=code, detail=msg) from e
+    await db.commit()
     return CollectionWithStatsResponse(
-        id=str(c.id),
-        name=c.name,
+        id=str(cid),
+        name=name,
         payment_count=0,
         sum_effective=Decimal(0),
         first_payment_date=None,

@@ -13,6 +13,11 @@ class Settings(BaseSettings):
 
     splitwise_manager_url: str | None = None
 
+    credentials_encryption_key: str | None = None
+    ai_model: str | None = None
+    ai_api_base: str | None = None
+    ai_api_key: str | None = None
+
     auto_scrape_enabled: bool = True
     auto_scrape_interval_minutes: int = 60
     auto_scrape_lookback_days: int = 2

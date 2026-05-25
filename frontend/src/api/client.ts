@@ -20,6 +20,10 @@ import type {
   SplitwiseStatus,
   SplitwiseUnshareResponse,
   TagItem,
+  ChatMessage,
+  ChatResponse,
+  AISettings,
+  AISettingsBody,
 } from '../types'
 
 const BASE = '/api'
@@ -229,5 +233,23 @@ export const api = {
       request(`/splitwise/outbox/failed?limit=${limit}`),
     retry: (paymentId: string): Promise<SplitwiseRetryResponse> =>
       request(`/splitwise/retry/${paymentId}`, { method: 'POST' }),
+  },
+  agent: {
+    chat: (messages: ChatMessage[]): Promise<ChatResponse> =>
+      request('/agent/chat', { method: 'POST', body: JSON.stringify({ messages }) }),
+    executeAction: (
+      messages: ChatMessage[],
+      actionId: string,
+      decision: 'approve' | 'reject',
+    ): Promise<ChatResponse> =>
+      request('/agent/action/execute', {
+        method: 'POST',
+        body: JSON.stringify({ messages, action_id: actionId, decision }),
+      }),
+  },
+  aiSettings: {
+    get: (): Promise<AISettings> => request('/ai-settings'),
+    put: (body: AISettingsBody): Promise<AISettings> =>
+      request('/ai-settings', { method: 'PUT', body: JSON.stringify(body) }),
   },
 }
