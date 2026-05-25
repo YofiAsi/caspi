@@ -3,15 +3,17 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from caspi.application.collections_ops import create_collection as app_create_collection
-from caspi.application.payments.update import PaymentPatchValidationError, apply_payment_patch
+from caspi.application.payments.update import PaymentPatchValidationError, _validate_tag_ids, apply_payment_patch
 from caspi.application.tags import create_tag as app_create_tag
 from caspi.domain.value_objects.ids import PaymentId
 from caspi.domain.value_objects.tag import Tag
 from caspi.infrastructure.models import CollectionModel, MerchantModel, PaymentModel, TagModel
+from caspi.domain.value_objects.ids import MerchantId
+from caspi.infrastructure.repositories.merchant_repository import SqlMerchantRepository
 from caspi.infrastructure.repositories.payment_repository import SqlPaymentRepository
 from caspi.infrastructure.splitwise_manager_client import (
     SplitwiseManagerClient,
@@ -47,6 +49,44 @@ async def _payment_label(db: AsyncSession, pid: UUID) -> str:
     m = await db.get(MerchantModel, row.merchant_id)
     name = (m.alias or m.canonical_name) if m else row.description
     return f"{name} ({row.date.isoformat()})"
+
+
+async def _display_tag_name(db: AsyncSession, args: dict[str, Any]) -> str:
+    if args.get("tag_name"):
+        return Tag(args["tag_name"]).name
+    if args.get("tag_id"):
+        row = await db.get(TagModel, UUID(args["tag_id"]))
+        if row:
+            return row.name
+        return str(args["tag_id"])
+    return "tag"
+
+
+async def _resolve_merchant_id(db: AsyncSession, args: dict[str, Any]) -> UUID:
+    if args.get("merchant_id"):
+        mid = UUID(args["merchant_id"])
+        if await db.get(MerchantModel, mid):
+            return mid
+        raise ValueError("Merchant not found")
+    name = (args.get("merchant_name") or "").strip()
+    if not name:
+        raise ValueError("merchant_id or merchant_name required")
+    pattern = f"%{name}%"
+    result = await db.execute(
+        select(MerchantModel).where(
+            or_(
+                MerchantModel.canonical_name.ilike(pattern),
+                MerchantModel.alias.ilike(pattern),
+            )
+        )
+    )
+    matches = list(result.scalars().all())
+    if not matches:
+        raise ValueError(f"Merchant not found: {name}")
+    if len(matches) > 1:
+        labels = [m.alias or m.canonical_name for m in matches[:5]]
+        raise ValueError(f"Multiple merchants match {name!r}: {', '.join(labels)}")
+    return matches[0].id
 
 
 async def _resolve_tag_id(db: AsyncSession, args: dict[str, Any]) -> UUID:
@@ -90,8 +130,7 @@ async def _tag_payment(db: AsyncSession, args: dict[str, Any]) -> dict[str, Any]
 
 
 async def _summarize_tag_payment(db: AsyncSession, args: dict[str, Any]) -> str:
-    tag_id = await _resolve_tag_id(db, args)
-    tname = await _tag_name(db, tag_id)
+    tname = await _display_tag_name(db, args)
     plabel = await _payment_label(db, UUID(args["payment_id"]))
     return f"Tag «{plabel}» with «{tname}»"
 
@@ -106,10 +145,31 @@ async def _untag_payment(db: AsyncSession, args: dict[str, Any]) -> dict[str, An
 
 
 async def _summarize_untag_payment(db: AsyncSession, args: dict[str, Any]) -> str:
-    tag_id = await _resolve_tag_id(db, args)
-    tname = await _tag_name(db, tag_id)
+    tname = await _display_tag_name(db, args)
     plabel = await _payment_label(db, UUID(args["payment_id"]))
     return f"Remove tag «{tname}» from «{plabel}»"
+
+
+async def _tag_merchant(db: AsyncSession, args: dict[str, Any]) -> dict[str, Any]:
+    mid = await _resolve_merchant_id(db, args)
+    tag_id = await _resolve_tag_id(db, args)
+    repo = SqlMerchantRepository(db)
+    tag_map = await repo.load_tag_ids_by_merchant()
+    existing = list(tag_map.get(mid, []))
+    merged = list(dict.fromkeys([*existing, tag_id]))
+    await _validate_tag_ids(db, merged)
+    await repo.replace_tag_ids(MerchantId(mid), merged)
+    await db.commit()
+    return {"merchant_id": str(mid), "tag_id": str(tag_id)}
+
+
+async def _summarize_tag_merchant(db: AsyncSession, args: dict[str, Any]) -> str:
+    tname = await _display_tag_name(db, args)
+    if args.get("merchant_id"):
+        mlabel = await _merchant_label(db, UUID(args["merchant_id"]))
+    else:
+        mlabel = args.get("merchant_name", "merchant")
+    return f"Tag merchant «{mlabel}» with «{tname}»"
 
 
 async def _create_collection(db: AsyncSession, args: dict[str, Any]) -> dict[str, Any]:
@@ -228,6 +288,27 @@ def _register_writes() -> None:
             is_write=True,
             handler=_tag_payment,
             summarize=_summarize_tag_payment,
+        )
+    )
+    register_tool(
+        ToolSpec(
+            name="tag_merchant",
+            description=(
+                "Add a tag to a merchant (applies to all payments from that merchant). "
+                "Use merchant_id or merchant_name; tag_id or tag_name."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "merchant_id": {"type": "string"},
+                    "merchant_name": {"type": "string"},
+                    "tag_id": {"type": "string"},
+                    "tag_name": {"type": "string"},
+                },
+            },
+            is_write=True,
+            handler=_tag_merchant,
+            summarize=_summarize_tag_merchant,
         )
     )
     register_tool(

@@ -11,7 +11,7 @@ from caspi.agent.prompts import SYSTEM_PROMPT
 from caspi.agent.schemas import ChatResponse, PendingAction
 from caspi.agent.tools import reads as _reads  # noqa: F401
 from caspi.agent.tools import writes as _writes  # noqa: F401
-from caspi.agent.tools.registry import TOOLS, get_tool, tools_openai_schema
+from caspi.agent.tools.registry import get_tool, tools_openai_schema
 
 
 def _ensure_system(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -92,7 +92,11 @@ async def run_agent_loop(
                 )
                 continue
             if spec.is_write:
-                summary = await spec.summarize(db, args)  # type: ignore[misc]
+                try:
+                    summary = await spec.summarize(db, args)  # type: ignore[misc]
+                except Exception as e:
+                    transcript.append(_tool_result_message(tc["id"], {"error": str(e)}))
+                    continue
                 return ChatResponse(
                     status="pending_action",
                     messages=transcript,
